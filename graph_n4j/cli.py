@@ -35,6 +35,13 @@ def main():
     parser.add_argument(
         "-m", "--model", help="Override the Groq LLM model to use (e.g. llama-3.3-70b-versatile)",
     )
+    
+    from graph_n4j import __version__
+    parser.add_argument(
+        "--version", action="version",
+        version=f"%(prog)s {__version__}",
+        help="Show program's version number and exit",
+    )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # ── index ─────────────────────────────────────────────
