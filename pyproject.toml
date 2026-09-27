@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graph-n4j"
+version = "0.1.0"
+description = "Bridge LLM agents with code repositories via Neo4j graph databases. Based on the CodexGraph NAACL 2025 paper."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    {name = "Shubham Kumar Sahu"},
+]
+keywords = [
+    "neo4j", "graph-database", "code-analysis", "llm", "code-graph",
+    "static-analysis", "code-intelligence", "groq", "cypher",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Database",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "groq>=0.11.0",
+    "neo4j>=5.20.0",
+    "python-dotenv>=1.0.0",
+    "gitpython>=3.1.40",
+    "diskcache>=5.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ShubhamKumarSahu-svg/graph-n4j"
+Documentation = "https://github.com/ShubhamKumarSahu-svg/graph-n4j#readme"
+Repository = "https://github.com/ShubhamKumarSahu-svg/graph-n4j"
+Issues = "https://github.com/ShubhamKumarSahu-svg/graph-n4j/issues"
+
+[project.scripts]
+graph-n4j = "graph_n4j.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["graph_n4j*"]
+
+[tool.setuptools.package-data]
+graph_n4j = ["py.typed"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true

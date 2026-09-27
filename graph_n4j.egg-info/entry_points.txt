@@ -1,0 +1,2 @@
+[console_scripts]
+graph-n4j = graph_n4j.cli:main
