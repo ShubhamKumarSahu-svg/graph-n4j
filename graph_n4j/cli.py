@@ -88,9 +88,9 @@ def main():
     # Import here (after dotenv loaded) to avoid import errors on missing env vars
     from graph_n4j.core import GraphN4J
 
-    g = GraphN4J.from_env()
-
     try:
+        g = GraphN4J.from_env()
+
         if args.command == "index":
             _cmd_index(g, args)
         elif args.command == "index-github":
@@ -105,11 +105,21 @@ def main():
             _cmd_clear(g, args)
         elif args.command == "cypher":
             _cmd_cypher(g, args)
+    except ValueError as e:
+        print(f"\n❌ Configuration Error: {e}")
+        print("💡 Hint: Set the GROQ_API_KEY environment variable.")
+        sys.exit(1)
     except KeyboardInterrupt:
         print("\nInterrupted.")
         sys.exit(130)
     except Exception as e:
-        print(f"\nError: {e}", file=sys.stderr)
+        error_msg = str(e)
+        if "neo4j" in error_msg.lower() or "serviceunavailable" in str(type(e)).lower() or "auth" in error_msg.lower():
+            print(f"\n❌ Database Connection Error: {error_msg}")
+            print("💡 Hint: Make sure Neo4j is running and NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD are set correctly.")
+        else:
+            print(f"\n❌ Error: {error_msg}", file=sys.stderr)
+        
         if args.verbose:
             import traceback
             traceback.print_exc()
