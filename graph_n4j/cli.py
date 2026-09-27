@@ -76,6 +76,10 @@ def main():
     # ── view ──────────────────────────────────────────────
     subparsers.add_parser("view", help="View the graph visually in Neo4j Browser")
 
+    # ── change-model ──────────────────────────────────────
+    p_chmodel = subparsers.add_parser("change-model", help="Change the default Groq LLM model in .env")
+    p_chmodel.add_argument("model_name", help="The new model name (e.g., llama-3.3-70b-versatile)")
+
     # ── clear ─────────────────────────────────────────────
     p_clear = subparsers.add_parser("clear", help="Clear data for a repo")
     p_clear.add_argument("repo_id", help="Repo ID to clear (or 'all')")
@@ -121,6 +125,8 @@ def main():
             _cmd_cypher(g, args)
         elif args.command == "view":
             _cmd_view()
+        elif args.command == "change-model":
+            _cmd_change_model(args)
     except ValueError as e:
         print(f"\n❌ Configuration Error: {e}")
         print("💡 Hint: Set the GROQ_API_KEY environment variable.")
@@ -257,6 +263,22 @@ def _cmd_view():
         webbrowser.open("http://localhost:7474")
     except Exception:
         pass
+
+
+def _cmd_change_model(args):
+    import os
+    from dotenv import set_key, find_dotenv
+    
+    dotenv_path = find_dotenv(usecwd=True)
+    if not dotenv_path:
+        dotenv_path = os.path.join(os.getcwd(), ".env")
+        with open(dotenv_path, "w", encoding="utf-8") as f:
+            f.write(f"GROQ_MODEL={args.model_name}\n")
+    else:
+        set_key(dotenv_path, "GROQ_MODEL", args.model_name)
+        
+    print(f"\n✅ Default model permanently changed to: {args.model_name}")
+    print(f"Updated config file: {dotenv_path}\n")
 
 
 def _print_stats(g, repo_id=None):
