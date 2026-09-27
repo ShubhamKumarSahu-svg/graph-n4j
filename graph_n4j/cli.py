@@ -88,6 +88,7 @@ def main():
     # Import here (after dotenv loaded) to avoid import errors on missing env vars
     from graph_n4j.core import GraphN4J
 
+    g = None
     try:
         g = GraphN4J.from_env()
 
@@ -125,7 +126,8 @@ def main():
             traceback.print_exc()
         sys.exit(1)
     finally:
-        g.close()
+        if g is not None:
+            g.close()
 
 
 def _cmd_index(g, args):

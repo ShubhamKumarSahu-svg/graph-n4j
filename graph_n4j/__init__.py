@@ -13,7 +13,7 @@ Quick Start:
     print(result.answer)
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 from graph_n4j.core import GraphN4J
 from graph_n4j.graph_db import GraphDB
