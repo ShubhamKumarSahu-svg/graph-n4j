@@ -32,6 +32,9 @@ def main():
         "-v", "--verbose", action="store_true",
         help="Enable verbose (DEBUG) logging",
     )
+    parser.add_argument(
+        "-m", "--model", help="Override the Groq LLM model to use (e.g. llama-3.3-70b-versatile)",
+    )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # ── index ─────────────────────────────────────────────
@@ -63,6 +66,9 @@ def main():
     # ── repos ─────────────────────────────────────────────
     subparsers.add_parser("repos", help="List all indexed repositories")
 
+    # ── view ──────────────────────────────────────────────
+    subparsers.add_parser("view", help="View the graph visually in Neo4j Browser")
+
     # ── clear ─────────────────────────────────────────────
     p_clear = subparsers.add_parser("clear", help="Clear data for a repo")
     p_clear.add_argument("repo_id", help="Repo ID to clear (or 'all')")
@@ -90,7 +96,7 @@ def main():
 
     g = None
     try:
-        g = GraphN4J.from_env()
+        g = GraphN4J.from_env(model_override=args.model)
 
         if args.command == "index":
             _cmd_index(g, args)
@@ -106,6 +112,8 @@ def main():
             _cmd_clear(g, args)
         elif args.command == "cypher":
             _cmd_cypher(g, args)
+        elif args.command == "view":
+            _cmd_view()
     except ValueError as e:
         print(f"\n❌ Configuration Error: {e}")
         print("💡 Hint: Set the GROQ_API_KEY environment variable.")
@@ -228,6 +236,20 @@ def _cmd_cypher(g, args):
     g.connect()
     results = g.run_cypher(args.query)
     print(json.dumps(results, indent=2, default=str))
+
+
+def _cmd_view():
+    import webbrowser
+    print("\n🌐 Opening Neo4j Browser...")
+    print("If it doesn't open automatically, visit: http://localhost:7474")
+    print("\n💡 Fastest way to view the complete graph:")
+    print("Once logged in, paste this Cypher query in the top bar and press Enter:\n")
+    print("    MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 300\n")
+    print("(Note: rendering an *entire* large codebase at once can freeze your browser, so we limit it to 300 relationships!)\n")
+    try:
+        webbrowser.open("http://localhost:7474")
+    except Exception:
+        pass
 
 
 def _print_stats(g, repo_id=None):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graph-n4j
-Version: 0.1.3
+Version: 0.1.4
 Summary: Bridge LLM agents with code repositories via Neo4j graph databases. Based on the CodexGraph NAACL 2025 paper.
 Author: Shubham Kumar Sahu
 License-Expression: MIT
