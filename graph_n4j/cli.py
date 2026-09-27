@@ -18,11 +18,11 @@ import json
 import logging
 import sys
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 
 def main():
-    load_dotenv()
+    load_dotenv(find_dotenv(usecwd=True), override=True, encoding="utf-8-sig")
 
     parser = argparse.ArgumentParser(
         prog="graph-n4j",

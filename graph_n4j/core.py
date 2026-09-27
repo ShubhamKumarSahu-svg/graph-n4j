@@ -22,7 +22,7 @@ import os
 import time
 from typing import Optional
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 from graph_n4j.graph_db import GraphDB
 from graph_n4j.llm.groq_client import GroqClient
@@ -95,10 +95,12 @@ class GraphN4J:
         Args:
             dotenv_path: Optional path to a .env file.
         """
-        load_dotenv(dotenv_path)
+        if dotenv_path is None:
+            dotenv_path = find_dotenv(usecwd=True)
+        load_dotenv(dotenv_path, override=True, encoding="utf-8-sig")
         return cls(
             groq_api_key=os.getenv("GROQ_API_KEY"),
-            groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            groq_model=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
             neo4j_uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
             neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
             neo4j_password=os.getenv("NEO4J_PASSWORD", "password"),
