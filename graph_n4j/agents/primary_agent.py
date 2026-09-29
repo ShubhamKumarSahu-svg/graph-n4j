@@ -158,11 +158,43 @@ class PrimaryAgent:
 
         messages.append({"role": "user", "content": user_content})
 
-        # Call Groq with JSON mode
-        response = self.client.chat_json(
-            messages=messages,
-            temperature=self.temperature,
-        )
+        # Call Groq with JSON mode (with fallback for json_validate_failed)
+        try:
+            response = self.client.chat_json(
+                messages=messages,
+                temperature=self.temperature,
+            )
+        except Exception as e:
+            logger.warning("Primary Agent JSON mode failed: %s. Retrying without JSON mode.", e)
+            import json as _json
+            import re as _re
+            raw = self.client.chat(
+                messages=messages,
+                temperature=self.temperature,
+                json_mode=False,
+            )
+            # Try to extract JSON from the plain text response
+            try:
+                response = _json.loads(raw)
+            except _json.JSONDecodeError:
+                match = _re.search(r"\{.*\}", raw, _re.DOTALL)
+                if match:
+                    try:
+                        response = _json.loads(match.group(0))
+                    except _json.JSONDecodeError:
+                        response = {
+                            "analysis": raw,
+                            "queries": [],
+                            "sufficient_context": True,
+                            "final_answer": raw,
+                        }
+                else:
+                    response = {
+                        "analysis": raw,
+                        "queries": [],
+                        "sufficient_context": True,
+                        "final_answer": raw,
+                    }
 
         # Validate response structure
         if "analysis" not in response:

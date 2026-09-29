@@ -303,29 +303,46 @@ class CodexGraphPipeline:
         )
 
     def _synthesize_final(self, question: str, context_history: list[dict]) -> str:
-        """Ask the LLM for a final answer given all gathered context."""
+        """Ask the LLM for a final answer given all gathered context.
+        
+        Uses plain text mode (not JSON) to avoid json_validate_failed errors
+        on complex/long answers from Groq.
+        """
+        context_text = "\n".join(
+            f"Round {e['round']}: {e['results']}"
+            for e in context_history
+        )
+        
+        messages = [{
+            "role": "system",
+            "content": (
+                "You have reached the maximum number of retrieval rounds. "
+                "Based on all the context gathered so far, provide your best "
+                "and most comprehensive answer to the user's question. "
+                "Use markdown formatting for readability."
+            ),
+        }, {
+            "role": "user",
+            "content": f"Question: {question}\n\nContext gathered:\n{context_text}",
+        }]
+        
         try:
-            final_messages = [{
-                "role": "system",
-                "content": (
-                    "You have reached the maximum number of retrieval rounds. "
-                    "Based on all the context gathered so far, provide your best "
-                    "answer to the user's question. Respond with valid JSON: "
-                    '{"analysis": "...", "final_answer": "..."}'
-                ),
-            }, {
-                "role": "user",
-                "content": f"Question: {question}\n\nContext gathered:\n" +
-                    "\n".join(
-                        f"Round {e['round']}: {e['results']}"
-                        for e in context_history
-                    ),
-            }]
-            final = self.client.chat_json(final_messages, temperature=0.3)
-            return final.get("final_answer", final.get("analysis", "Unable to determine answer."))
+            return self.client.chat(messages, temperature=0.3, json_mode=False)
         except Exception as e:
             logger.error("Final synthesis failed: %s", e)
-            return "Unable to synthesize a final answer. See context history for partial results."
+            # Retry with a shorter context summary
+            try:
+                short_context = "\n".join(
+                    f"Round {e['round']}: {str(e['results'])[:500]}"
+                    for e in context_history
+                )
+                messages[1]["content"] = (
+                    f"Question: {question}\n\nContext summary:\n{short_context}"
+                )
+                return self.client.chat(messages, temperature=0.3, json_mode=False)
+            except Exception:
+                logger.error("Final synthesis retry also failed.")
+                return "Unable to synthesize a final answer. See context history for partial results."
 
     def _get_token_delta(self, initial_total: int) -> dict:
         """Calculate tokens used in this pipeline run."""
