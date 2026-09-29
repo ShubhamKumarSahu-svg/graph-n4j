@@ -3,6 +3,7 @@ neo4j>=5.20.0
 python-dotenv>=1.0.0
 gitpython>=3.1.40
 diskcache>=5.6.0
+rich>=13.0.0
 
 [dev]
 pytest>=8.0.0

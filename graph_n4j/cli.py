@@ -21,6 +21,43 @@ import sys
 from dotenv import load_dotenv, find_dotenv
 
 
+def _render_markdown(text: str) -> None:
+    """Render markdown text beautifully in the terminal using rich.
+    
+    Falls back to plain text output if rich is not available.
+    """
+    try:
+        from rich.console import Console
+        from rich.markdown import Markdown
+        from rich.panel import Panel
+        from rich.theme import Theme
+
+        custom_theme = Theme({
+            "markdown.h1": "bold bright_cyan",
+            "markdown.h2": "bold bright_green",
+            "markdown.h3": "bold bright_yellow",
+            "markdown.code": "bright_magenta on grey11",
+            "markdown.link": "bright_blue underline",
+        })
+
+        console = Console(theme=custom_theme)
+        md = Markdown(text)
+        console.print()
+        console.print(
+            Panel(
+                md,
+                title="[bold bright_cyan]graph-n4j Answer[/]",
+                border_style="bright_cyan",
+                padding=(1, 2),
+                expand=True,
+            )
+        )
+        console.print()
+    except ImportError:
+        # Fallback: just print the raw text
+        print(f"\n{text}\n")
+
+
 def main():
     load_dotenv(find_dotenv(usecwd=True), override=True, encoding="utf-8-sig")
 
@@ -133,8 +170,8 @@ def main():
         elif args.command == "change-model":
             _cmd_change_model(args)
     except ValueError as e:
-        print(f"\n❌ Configuration Error: {e}")
-        print("💡 Hint: Set the GROQ_API_KEY environment variable.")
+        print(f"\n[ERROR] Configuration Error: {e}")
+        print("Hint: Set the GROQ_API_KEY environment variable.")
         sys.exit(1)
     except KeyboardInterrupt:
         print("\nInterrupted.")
@@ -142,10 +179,10 @@ def main():
     except Exception as e:
         error_msg = str(e)
         if "neo4j" in error_msg.lower() or "serviceunavailable" in str(type(e)).lower() or "auth" in error_msg.lower():
-            print(f"\n❌ Database Connection Error: {error_msg}")
-            print("💡 Hint: Make sure Neo4j is running and NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD are set correctly.")
+            print(f"\n[ERROR] Database Connection Error: {error_msg}")
+            print("Hint: Make sure Neo4j is running and NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD are set correctly.")
         else:
-            print(f"\n❌ Error: {error_msg}", file=sys.stderr)
+            print(f"\n[ERROR] {error_msg}", file=sys.stderr)
         
         if args.verbose:
             import traceback
@@ -217,9 +254,24 @@ def _cmd_ask(g, args):
         }
         print(json.dumps(output, indent=2))
     else:
-        print(f"\n{result.answer}\n")
-        print(f"  [{result.rounds_used} rounds, {result.total_queries} queries, "
-              f"{result.neo4j_roundtrips} DB hits]")
+        _render_markdown(result.answer)
+        try:
+            from rich.console import Console
+            from rich.text import Text
+            console = Console()
+            stats = Text()
+            stats.append("  >> ", style="bright_yellow")
+            stats.append(f"{result.rounds_used}", style="bold bright_cyan")
+            stats.append(" rounds  ", style="dim")
+            stats.append(f"{result.total_queries}", style="bold bright_green")
+            stats.append(" queries  ", style="dim")
+            stats.append(f"{result.neo4j_roundtrips}", style="bold bright_magenta")
+            stats.append(" DB hits", style="dim")
+            console.print(stats)
+            console.print()
+        except ImportError:
+            print(f"  [{result.rounds_used} rounds, {result.total_queries} queries, "
+                  f"{result.neo4j_roundtrips} DB hits]")
 
 
 def _cmd_stats(g, args):
@@ -258,9 +310,9 @@ def _cmd_cypher(g, args):
 
 def _cmd_view():
     import webbrowser
-    print("\n🌐 Opening Neo4j Browser...")
+    print("\nOpening Neo4j Browser...")
     print("If it doesn't open automatically, visit: http://localhost:7474")
-    print("\n💡 Fastest way to view the complete graph:")
+    print("\nFastest way to view the complete graph:")
     print("Once logged in, paste this Cypher query in the top bar and press Enter:\n")
     print("    MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 300\n")
     print("(Note: rendering an *entire* large codebase at once can freeze your browser, so we limit it to 300 relationships!)\n")
@@ -282,7 +334,7 @@ def _cmd_change_model(args):
     else:
         set_key(dotenv_path, "GROQ_MODEL", args.model_name)
         
-    print(f"\n✅ Default model permanently changed to: {args.model_name}")
+    print(f"\n[OK] Default model permanently changed to: {args.model_name}")
     print(f"Updated config file: {dotenv_path}\n")
 
 
