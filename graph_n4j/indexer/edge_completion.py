@@ -1,5 +1,5 @@
 """
-edge_completion.py — Phase 2 of the CodexGraph indexing pipeline.
+edge_completion.py - Phase 2 of the CodexGraph indexing pipeline.
 
 Second pass that resolves cross-file relationships:
   - Resolves relative imports to absolute dotted paths
@@ -13,12 +13,12 @@ All edges are written via MERGE (idempotent).
 """
 
 import ast
-import os
 import logging
+import os
 from typing import Optional
 
 from graph_n4j.graph_db import GraphDB
-from graph_n4j.indexer.shallow_index import ShallowIndexResult, ExtractedClass
+from graph_n4j.indexer.shallow_index import ExtractedClass, ShallowIndexResult
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════
 # Import resolution helpers
 # ═══════════════════════════════════════════
+
 
 def _resolve_relative_import(
     current_module: str,
@@ -82,15 +83,12 @@ def _build_import_resolution_map(index: ShallowIndexResult) -> dict[str, dict[st
     Returns:
         {module_name: {imported_name: resolved_module_path, ...}, ...}
     """
-    module_lookup = _build_module_lookup(index)
     resolution_map: dict[str, dict[str, str]] = {}
 
     for mod in index.modules:
         name_map: dict[str, str] = {}
         for imp in mod.imports:
-            resolved_module = _resolve_relative_import(
-                mod.name, imp["module"], imp["level"]
-            )
+            resolved_module = _resolve_relative_import(mod.name, imp["module"], imp["level"])
             for name in imp["names"]:
                 # 'from pkg.module import ClassName' -> ClassName resolves to pkg.module
                 name_map[name] = resolved_module
@@ -104,6 +102,7 @@ def _build_import_resolution_map(index: ShallowIndexResult) -> dict[str, dict[st
 # ═══════════════════════════════════════════
 # USES edge detection via AST DFS
 # ═══════════════════════════════════════════
+
 
 def _detect_uses_in_function(
     func_node: ast.AST,
@@ -121,13 +120,15 @@ def _detect_uses_in_function(
     for node in ast.walk(func_node):
         # Global variable access: bare Name that matches a known global
         if isinstance(node, ast.Name) and node.id in known_globals:
-            uses.append({
-                "target_name": node.id,
-                "target_type": "GLOBAL_VARIABLE",
-                "target_class": None,
-                "source_association_type": "reference",
-                "target_association_type": "global",
-            })
+            uses.append(
+                {
+                    "target_name": node.id,
+                    "target_type": "GLOBAL_VARIABLE",
+                    "target_class": None,
+                    "source_association_type": "reference",
+                    "target_association_type": "global",
+                }
+            )
 
         # Field access via self.attr or ClassName.attr
         elif isinstance(node, ast.Attribute):
@@ -137,22 +138,26 @@ def _detect_uses_in_function(
                 # self.field
                 if accessor == "self":
                     # We'll resolve the class in the caller
-                    uses.append({
-                        "target_name": attr,
-                        "target_type": "FIELD",
-                        "target_class": "__self__",  # placeholder, resolved by caller
-                        "source_association_type": "attribute",
-                        "target_association_type": "instance",
-                    })
+                    uses.append(
+                        {
+                            "target_name": attr,
+                            "target_type": "FIELD",
+                            "target_class": "__self__",  # placeholder, resolved by caller
+                            "source_association_type": "attribute",
+                            "target_association_type": "instance",
+                        }
+                    )
                 # ClassName.field
                 elif accessor in known_fields and attr in known_fields[accessor]:
-                    uses.append({
-                        "target_name": attr,
-                        "target_type": "FIELD",
-                        "target_class": accessor,
-                        "source_association_type": "attribute",
-                        "target_association_type": "class",
-                    })
+                    uses.append(
+                        {
+                            "target_name": attr,
+                            "target_type": "FIELD",
+                            "target_class": accessor,
+                            "source_association_type": "attribute",
+                            "target_association_type": "class",
+                        }
+                    )
 
     return uses
 
@@ -160,6 +165,7 @@ def _detect_uses_in_function(
 # ═══════════════════════════════════════════
 # Main edge completion
 # ═══════════════════════════════════════════
+
 
 def complete_edges(
     index: ShallowIndexResult,
@@ -173,7 +179,6 @@ def complete_edges(
     All nodes/edges are tagged with repo_id and commit_sha for multi-repo support.
     """
     repo_root = os.path.abspath(repo_root)
-    module_lookup = _build_module_lookup(index)
     class_lookup = _build_class_lookup(index)
     import_map = _build_import_resolution_map(index)
 
@@ -184,27 +189,40 @@ def complete_edges(
         db.merge_module(mod.name, mod.file_path, repo_id=repo_id, commit_sha=commit_sha)
 
     for cls in index.classes:
-        db.merge_class(cls.name, cls.file_path, cls.signature, cls.code,
-                       repo_id=repo_id, commit_sha=commit_sha)
+        db.merge_class(
+            cls.name, cls.file_path, cls.signature, cls.code, repo_id=repo_id, commit_sha=commit_sha
+        )
 
     for func in index.functions:
-        db.merge_function(func.name, func.file_path, func.signature, func.code,
-                          repo_id=repo_id, commit_sha=commit_sha)
+        db.merge_function(
+            func.name,
+            func.file_path,
+            func.signature,
+            func.code,
+            repo_id=repo_id,
+            commit_sha=commit_sha,
+        )
 
     for method in index.methods:
         db.merge_method(
-            method.name, method.file_path, method.class_name,
-            method.signature, method.code,
-            repo_id=repo_id, commit_sha=commit_sha,
+            method.name,
+            method.file_path,
+            method.class_name,
+            method.signature,
+            method.code,
+            repo_id=repo_id,
+            commit_sha=commit_sha,
         )
 
     for fld in index.fields:
-        db.merge_field(fld.name, fld.file_path, fld.class_name,
-                       repo_id=repo_id, commit_sha=commit_sha)
+        db.merge_field(
+            fld.name, fld.file_path, fld.class_name, repo_id=repo_id, commit_sha=commit_sha
+        )
 
     for gv in index.global_variables:
-        db.merge_global_variable(gv.name, gv.file_path, gv.code,
-                                 repo_id=repo_id, commit_sha=commit_sha)
+        db.merge_global_variable(
+            gv.name, gv.file_path, gv.code, repo_id=repo_id, commit_sha=commit_sha
+        )
 
     logger.info("All nodes written.")
 
@@ -212,30 +230,34 @@ def complete_edges(
     logger.info("Creating CONTAINS edges...")
 
     for cls in index.classes:
-        db.merge_contains(cls.module_name, cls.file_path, cls.name, cls.file_path, "CLASS",
-                          repo_id=repo_id)
+        db.merge_contains(
+            cls.module_name, cls.file_path, cls.name, cls.file_path, "CLASS", repo_id=repo_id
+        )
 
     for func in index.functions:
-        db.merge_contains(func.module_name, func.file_path, func.name, func.file_path, "FUNCTION",
-                          repo_id=repo_id)
+        db.merge_contains(
+            func.module_name, func.file_path, func.name, func.file_path, "FUNCTION", repo_id=repo_id
+        )
 
     for gv in index.global_variables:
-        db.merge_contains(gv.module_name, gv.file_path, gv.name, gv.file_path, "GLOBAL_VARIABLE",
-                          repo_id=repo_id)
+        db.merge_contains(
+            gv.module_name, gv.file_path, gv.name, gv.file_path, "GLOBAL_VARIABLE", repo_id=repo_id
+        )
 
     # ── Step 3: HAS_METHOD and HAS_FIELD edges ────────────
     logger.info("Creating HAS_METHOD and HAS_FIELD edges...")
 
     for cls in index.classes:
         for method in cls.methods:
-            db.merge_has_method(cls.name, cls.file_path, method.name, method.file_path,
-                               repo_id=repo_id)
+            db.merge_has_method(
+                cls.name, cls.file_path, method.name, method.file_path, repo_id=repo_id
+            )
         for field_name in cls.fields:
-            db.merge_has_field(cls.name, cls.file_path, field_name, cls.file_path,
-                              repo_id=repo_id)
+            db.merge_has_field(cls.name, cls.file_path, field_name, cls.file_path, repo_id=repo_id)
 
     # ── Step 4: INHERITS edges ────────────────────────────
     logger.info("Resolving INHERITS edges...")
+    module_lookup = _build_module_lookup(index)
 
     for cls in index.classes:
         for base_name in cls.base_classes:
@@ -243,14 +265,11 @@ def complete_edges(
                 base_name, cls.module_name, class_lookup, import_map, module_lookup
             )
             if parent_file:
-                db.merge_inherits(cls.name, cls.file_path, base_name, parent_file,
-                                  repo_id=repo_id)
+                db.merge_inherits(cls.name, cls.file_path, base_name, parent_file, repo_id=repo_id)
                 logger.debug("  %s -> %s (in %s)", cls.name, base_name, parent_file)
             else:
-                # Could be a builtin or external class — skip silently
-                logger.debug(
-                    "  Could not resolve base class '%s' for '%s'", base_name, cls.name
-                )
+                # Could be a builtin or external class - skip silently
+                logger.debug("  Could not resolve base class '%s' for '%s'", base_name, cls.name)
 
     # ── Step 5: Propagate inherited methods/fields ────────
     logger.info("Propagating inherited methods and fields...")
@@ -347,8 +366,10 @@ def _propagate_inheritance(
                     if method.name not in child_method_names:
                         # Create an inherited method edge from child class
                         db.merge_has_method(
-                            cls.name, cls.file_path,
-                            method.name, method.file_path,
+                            cls.name,
+                            cls.file_path,
+                            method.name,
+                            method.file_path,
                             repo_id=repo_id,
                         )
 
@@ -357,8 +378,10 @@ def _propagate_inheritance(
                 for field_name in parent_cls.fields:
                     if field_name not in child_field_names:
                         db.merge_has_field(
-                            cls.name, cls.file_path,
-                            field_name, parent_cls.file_path,
+                            cls.name,
+                            cls.file_path,
+                            field_name,
+                            parent_cls.file_path,
                             repo_id=repo_id,
                         )
 
@@ -381,10 +404,14 @@ def _create_uses_edges(
     for cls in index.classes:
         known_fields[cls.name] = set(cls.fields)
 
-    # Global variable file lookup
-    gv_file_lookup: dict[str, str] = {}
-    for gv in index.global_variables:
-        gv_file_lookup[gv.name] = gv.file_path
+    # Keep module identity: equal names in unrelated files are different globals.
+    import_map = _build_import_resolution_map(index)
+    gv_file_lookup = {(gv.module_name, gv.name): gv.file_path for gv in index.global_variables}
+
+    def global_file(module_name: str, name: str) -> str | None:
+        local = gv_file_lookup.get((module_name, name))
+        imported_module = import_map.get(module_name, {}).get(name, "")
+        return local or gv_file_lookup.get((imported_module, name))
 
     # Field file lookup: (class_name, field_name) -> file_path
     field_file_lookup: dict[tuple[str, str], str] = {}
@@ -401,7 +428,7 @@ def _create_uses_edges(
         uses = _detect_uses_in_function(func_ast, known_globals, known_fields)
         for use in uses:
             if use["target_type"] == "GLOBAL_VARIABLE":
-                target_file = gv_file_lookup.get(use["target_name"])
+                target_file = global_file(func.module_name, use["target_name"])
                 if target_file:
                     db.merge_uses(
                         source_name=func.name,
@@ -427,7 +454,7 @@ def _create_uses_edges(
         uses = _detect_uses_in_function(method_ast, known_globals, known_fields)
         for use in uses:
             if use["target_type"] == "GLOBAL_VARIABLE":
-                target_file = gv_file_lookup.get(use["target_name"])
+                target_file = global_file(method.module_name, use["target_name"])
                 if target_file:
                     db.merge_uses(
                         source_name=method.name,

@@ -1,5 +1,5 @@
 """
-shallow_index.py — Phase 1 of the CodexGraph indexing pipeline.
+shallow_index.py - Phase 1 of the CodexGraph indexing pipeline.
 
 Single-pass AST scan of every .py file in the target repo to extract:
   - MODULE nodes
@@ -9,14 +9,12 @@ Single-pass AST scan of every .py file in the target repo to extract:
   - FIELD nodes (class-level attributes)
   - GLOBAL_VARIABLE nodes (module-level assignments)
 
-Does NOT resolve cross-file relationships — that's Phase 2 (edge_completion.py).
+Does NOT resolve cross-file relationships - that's Phase 2 (edge_completion.py).
 """
 
 import ast
-import os
 import logging
-import textwrap
-from pathlib import Path
+import os
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -25,6 +23,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════
 # Data containers for extracted symbols
 # ═══════════════════════════════════════════
+
 
 @dataclass
 class ExtractedModule:
@@ -83,6 +82,7 @@ class ExtractedGlobalVariable:
 @dataclass
 class ShallowIndexResult:
     """Aggregated result from a shallow index scan."""
+
     modules: list[ExtractedModule] = field(default_factory=list)
     classes: list[ExtractedClass] = field(default_factory=list)
     functions: list[ExtractedFunction] = field(default_factory=list)
@@ -102,6 +102,7 @@ class ShallowIndexResult:
 # Helpers
 # ═══════════════════════════════════════════
 
+
 def _file_to_module_name(file_path: str, repo_root: str) -> str:
     """Convert a file path to a dotted module name relative to the repo root."""
     rel = os.path.relpath(file_path, repo_root)
@@ -120,7 +121,7 @@ def _get_source_segment(source_lines: list[str], node: ast.AST) -> str:
     if not hasattr(node, "lineno") or not hasattr(node, "end_lineno"):
         return ""
     start = node.lineno - 1  # 0-indexed
-    end = node.end_lineno     # exclusive
+    end = node.end_lineno  # exclusive
     return "\n".join(source_lines[start:end])
 
 
@@ -171,7 +172,9 @@ def _get_function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str
                 pass
         if i < len(all_args.kw_defaults) and all_args.kw_defaults[i] is not None:
             try:
-                part += f" = {ast.unparse(all_args.kw_defaults[i])}"
+                default = all_args.kw_defaults[i]
+                assert default is not None
+                part += f" = {ast.unparse(default)}"
             except Exception:
                 pass
         args_parts.append(part)
@@ -272,6 +275,7 @@ def _extract_class_fields(class_node: ast.ClassDef) -> list[str]:
 # Import extraction
 # ═══════════════════════════════════════════
 
+
 def _extract_imports(tree: ast.Module) -> list[dict]:
     """
     Extract import statements from a module's AST.
@@ -281,27 +285,32 @@ def _extract_imports(tree: ast.Module) -> list[dict]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                imports.append({
-                    "module": alias.name,
-                    "names": [alias.name],
-                    "alias": alias.asname,
-                    "level": 0,  # absolute
-                })
+                imports.append(
+                    {
+                        "module": alias.name,
+                        "names": [alias.name],
+                        "alias": alias.asname,
+                        "level": 0,  # absolute
+                    }
+                )
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
             names = [a.name for a in node.names] if node.names else []
-            imports.append({
-                "module": module,
-                "names": names,
-                "alias": None,
-                "level": node.level,  # 0=absolute, 1=relative '.', 2='..' etc.
-            })
+            imports.append(
+                {
+                    "module": module,
+                    "names": names,
+                    "alias": None,
+                    "level": node.level,  # 0=absolute, 1=relative '.', 2='..' etc.
+                }
+            )
     return imports
 
 
 # ═══════════════════════════════════════════
 # Main extraction: single file
 # ═══════════════════════════════════════════
+
 
 def extract_file(
     file_path: str,
@@ -338,24 +347,27 @@ def extract_file(
 
     # ── Module node ───────────────────────────────────────
     imports = _extract_imports(tree)
-    result.modules.append(ExtractedModule(
-        name=module_name,
-        file_path=rel_path,
-        imports=imports,
-    ))
+    result.modules.append(
+        ExtractedModule(
+            name=module_name,
+            file_path=rel_path,
+            imports=imports,
+        )
+    )
 
     # ── Walk top-level statements ─────────────────────────
     for node in tree.body:
-
         # ── Top-level functions ───────────────────────────
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            result.functions.append(ExtractedFunction(
-                name=node.name,
-                file_path=rel_path,
-                module_name=module_name,
-                signature=_get_function_signature(node),
-                code=_get_source_segment(source_lines, node),
-            ))
+            result.functions.append(
+                ExtractedFunction(
+                    name=node.name,
+                    file_path=rel_path,
+                    module_name=module_name,
+                    signature=_get_function_signature(node),
+                    code=_get_source_segment(source_lines, node),
+                )
+            )
 
         # ── Classes ───────────────────────────────────────
         elif isinstance(node, ast.ClassDef):
@@ -387,35 +399,41 @@ def extract_file(
                 )
                 result.fields.append(field_obj)
 
-            result.classes.append(ExtractedClass(
-                name=node.name,
-                file_path=rel_path,
-                module_name=module_name,
-                signature=class_sig,
-                code=class_code,
-                base_classes=base_classes,
-                methods=extracted_methods,
-                fields=field_names,
-            ))
+            result.classes.append(
+                ExtractedClass(
+                    name=node.name,
+                    file_path=rel_path,
+                    module_name=module_name,
+                    signature=class_sig,
+                    code=class_code,
+                    base_classes=base_classes,
+                    methods=extracted_methods,
+                    fields=field_names,
+                )
+            )
 
         # ── Global variables (module-level assignments) ───
         elif isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name):
-                    result.global_variables.append(ExtractedGlobalVariable(
-                        name=target.id,
+                    result.global_variables.append(
+                        ExtractedGlobalVariable(
+                            name=target.id,
+                            file_path=rel_path,
+                            module_name=module_name,
+                            code=_get_source_segment(source_lines, node),
+                        )
+                    )
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name):
+                result.global_variables.append(
+                    ExtractedGlobalVariable(
+                        name=node.target.id,
                         file_path=rel_path,
                         module_name=module_name,
                         code=_get_source_segment(source_lines, node),
-                    ))
-        elif isinstance(node, ast.AnnAssign):
-            if isinstance(node.target, ast.Name):
-                result.global_variables.append(ExtractedGlobalVariable(
-                    name=node.target.id,
-                    file_path=rel_path,
-                    module_name=module_name,
-                    code=_get_source_segment(source_lines, node),
-                ))
+                    )
+                )
 
     return result
 
@@ -424,7 +442,8 @@ def extract_file(
 # Main extraction: whole repo
 # ═══════════════════════════════════════════
 
-def shallow_index_repo(repo_root: str) -> ShallowIndexResult:
+
+def shallow_index_repo(repo_root: str, source_files: list[str] | None = None) -> ShallowIndexResult:
     """
     Phase 1: Scan all .py files in the repo and extract symbols.
 
@@ -437,15 +456,29 @@ def shallow_index_repo(repo_root: str) -> ShallowIndexResult:
     repo_root = os.path.abspath(repo_root)
     aggregate = ShallowIndexResult()
     file_count = 0
+    selected = {os.path.abspath(p) for p in source_files} if source_files is not None else None
 
     for root, dirs, files in os.walk(repo_root):
         # Skip common non-source directories
         dirs[:] = [
-            d for d in dirs
-            if d not in {
-                ".git", ".hg", ".svn", "__pycache__", ".mypy_cache",
-                ".pytest_cache", "node_modules", ".tox", ".venv", "venv",
-                "env", ".env", ".eggs", "*.egg-info",
+            d
+            for d in dirs
+            if d
+            not in {
+                ".git",
+                ".hg",
+                ".svn",
+                "__pycache__",
+                ".mypy_cache",
+                ".pytest_cache",
+                "node_modules",
+                ".tox",
+                ".venv",
+                "venv",
+                "env",
+                ".env",
+                ".eggs",
+                "*.egg-info",
             }
         ]
 
@@ -454,6 +487,8 @@ def shallow_index_repo(repo_root: str) -> ShallowIndexResult:
                 continue
 
             file_path = os.path.join(root, fname)
+            if selected is not None and file_path not in selected:
+                continue
             file_result = extract_file(file_path, repo_root)
 
             aggregate.modules.extend(file_result.modules)
@@ -464,5 +499,5 @@ def shallow_index_repo(repo_root: str) -> ShallowIndexResult:
             aggregate.global_variables.extend(file_result.global_variables)
             file_count += 1
 
-    logger.info("Shallow index complete — scanned %d files. %s", file_count, aggregate.summary())
+    logger.info("Shallow index complete - scanned %d files. %s", file_count, aggregate.summary())
     return aggregate
