@@ -114,7 +114,7 @@ class GraphDB:
         parameters = parameters or {}
 
         def _work(tx):
-            result: Result = tx.run(cypher, **parameters)
+            result: Result = tx.run(cypher, parameters)
             return [record.data() for record in result]
 
         with self.driver.session(database=self.database) as session:
