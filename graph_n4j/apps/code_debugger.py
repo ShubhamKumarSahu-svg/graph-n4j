@@ -1,5 +1,5 @@
 """
-code_debugger.py — Application 2: Root-cause analysis + unified diff patch.
+code_debugger.py - Application 2: Root-cause analysis + unified diff patch.
 
 Takes a bug report or issue description, uses the graph to trace through relevant
 code paths, identifies the likely root cause, and generates a unified diff patch.
@@ -76,5 +76,5 @@ class CodeDebugger:
         Returns:
             PipelineResult with root-cause analysis and diff patch.
         """
-        logger.info("CodeDebugger — bug report: '%s'", bug_report[:100])
+        logger.info("CodeDebugger - bug report: '%s'", bug_report[:100])
         return self.pipeline.run(bug_report)

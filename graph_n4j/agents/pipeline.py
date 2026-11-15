@@ -4,26 +4,29 @@ pipeline.py -- Iterative dual-agent pipeline with token efficiency optimizations
 Per Section 3.2 of the paper, plus B1-B7 token efficiency improvements:
   B1. Repo skeleton injection (--include-skeleton)
   B2. Query/translation caching (--enable-cache)
-  B3. Context pruning — seen code replaced with reference tags (--compact-context)
+  B3. Context pruning - seen code replaced with reference tags (--compact-context)
   B4. Result truncation to top-K rows (--truncate-results)
   B5. Cheaper model for Translation Agent (GROQ_MODEL_TRANSLATION)
   B6. Early-stopping on empty/duplicate results (--early-stop)
   B7. All caches keyed by (repo_id, commit_sha)
 """
 
-import os
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Optional
 
-from graph_n4j.graph_db import GraphDB
-from graph_n4j.llm.groq_client import GroqClient
 from graph_n4j.agents.primary_agent import PrimaryAgent
 from graph_n4j.agents.translation_agent import TranslationAgent
 from graph_n4j.cache import (
-    SkeletonCache, QueryCache, ContextTracker,
-    truncate_results, should_early_stop,
+    ContextTracker,
+    QueryCache,
+    SkeletonCache,
+    should_early_stop,
+    truncate_results,
 )
+from graph_n4j.graph_db import GraphDB
+from graph_n4j.llm.base import BaseLLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +34,16 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PipelineResult:
     """Result from a complete pipeline run."""
+
     answer: str
     rounds_used: int
     total_queries: int
-    neo4j_roundtrips: int = 0              # B2: actual DB hits (excl. cache hits)
+    neo4j_roundtrips: int = 0  # B2: actual DB hits (excl. cache hits)
     context_history: list[dict] = field(default_factory=list)
     token_usage: dict = field(default_factory=dict)
-    cache_stats: dict = field(default_factory=dict)   # B2: hit/miss rates
+    cache_stats: dict = field(default_factory=dict)  # B2: hit/miss rates
     errors: list[str] = field(default_factory=list)
-    early_stopped: bool = False             # B6: whether early-stop fired
+    early_stopped: bool = False  # B6: whether early-stop fired
     early_stop_reason: str = ""
 
 
@@ -52,7 +56,7 @@ class CodexGraphPipeline:
 
     def __init__(
         self,
-        groq_client: GroqClient,
+        groq_client: BaseLLMClient,
         graph_db: GraphDB,
         max_rounds: int = 5,
         query_mode: str = "single_query",
@@ -62,12 +66,12 @@ class CodexGraphPipeline:
         # ── B-flag controls ──
         repo_id: str = "",
         commit_sha: str = "",
-        include_skeleton: bool = True,      # B1
-        enable_cache: bool = True,          # B2
-        compact_context: bool = True,       # B3
-        truncate_max_rows: int = 15,        # B4 (0 = disabled)
+        include_skeleton: bool = True,  # B1
+        enable_cache: bool = True,  # B2
+        compact_context: bool = True,  # B3
+        truncate_max_rows: int = 15,  # B4 (0 = disabled)
         translation_model: Optional[str] = None,  # B5
-        early_stop: bool = True,            # B6
+        early_stop: bool = True,  # B6
         # Shared cache objects (reuse across pipeline calls in a session)
         skeleton_cache: Optional[SkeletonCache] = None,
         query_cache: Optional[QueryCache] = None,
@@ -89,7 +93,7 @@ class CodexGraphPipeline:
         self.translation_model = translation_model or os.getenv("GROQ_MODEL_TRANSLATION")
         self.early_stop = early_stop
 
-        # Cache objects — shared across calls for session-level reuse (B7)
+        # Cache objects - shared across calls for session-level reuse (B7)
         self.skeleton_cache = skeleton_cache or SkeletonCache()
         self.query_cache = query_cache or QueryCache(enabled=enable_cache)
 
@@ -260,11 +264,13 @@ class CodexGraphPipeline:
                 if stop:
                     logger.info("B6: Early stop triggered -- %s", reason)
                     # Store context and break to final synthesis
-                    context_history.append({
-                        "round": round_num,
-                        "queries": queries,
-                        "results": round_results,
-                    })
+                    context_history.append(
+                        {
+                            "round": round_num,
+                            "queries": queries,
+                            "results": round_results,
+                        }
+                    )
                     return PipelineResult(
                         answer=self._synthesize_final(question, context_history),
                         rounds_used=round_num,
@@ -281,11 +287,13 @@ class CodexGraphPipeline:
             previous_results = round_results
 
             # -- Step 3: Store round context --
-            context_history.append({
-                "round": round_num,
-                "queries": queries,
-                "results": round_results,
-            })
+            context_history.append(
+                {
+                    "round": round_num,
+                    "queries": queries,
+                    "results": round_results,
+                }
+            )
 
         # -- Fallback: max rounds reached --
         logger.info("Max rounds reached. Requesting final synthesis.")
@@ -304,28 +312,28 @@ class CodexGraphPipeline:
 
     def _synthesize_final(self, question: str, context_history: list[dict]) -> str:
         """Ask the LLM for a final answer given all gathered context.
-        
+
         Uses plain text mode (not JSON) to avoid json_validate_failed errors
         on complex/long answers from Groq.
         """
-        context_text = "\n".join(
-            f"Round {e['round']}: {e['results']}"
-            for e in context_history
-        )
-        
-        messages = [{
-            "role": "system",
-            "content": (
-                "You have reached the maximum number of retrieval rounds. "
-                "Based on all the context gathered so far, provide your best "
-                "and most comprehensive answer to the user's question. "
-                "Use markdown formatting for readability."
-            ),
-        }, {
-            "role": "user",
-            "content": f"Question: {question}\n\nContext gathered:\n{context_text}",
-        }]
-        
+        context_text = "\n".join(f"Round {e['round']}: {e['results']}" for e in context_history)
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You have reached the maximum number of retrieval rounds. "
+                    "Based on all the context gathered so far, provide your best "
+                    "and most comprehensive answer to the user's question. "
+                    "Use markdown formatting for readability."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Question: {question}\n\nContext gathered:\n{context_text}",
+            },
+        ]
+
         try:
             return self.client.chat(messages, temperature=0.3, json_mode=False)
         except Exception as e:
@@ -333,8 +341,7 @@ class CodexGraphPipeline:
             # Retry with a shorter context summary
             try:
                 short_context = "\n".join(
-                    f"Round {e['round']}: {str(e['results'])[:500]}"
-                    for e in context_history
+                    f"Round {e['round']}: {str(e['results'])[:500]}" for e in context_history
                 )
                 messages[1]["content"] = (
                     f"Question: {question}\n\nContext summary:\n{short_context}"
@@ -342,7 +349,9 @@ class CodexGraphPipeline:
                 return self.client.chat(messages, temperature=0.3, json_mode=False)
             except Exception:
                 logger.error("Final synthesis retry also failed.")
-                return "Unable to synthesize a final answer. See context history for partial results."
+                return (
+                    "Unable to synthesize a final answer. See context history for partial results."
+                )
 
     def _get_token_delta(self, initial_total: int) -> dict:
         """Calculate tokens used in this pipeline run."""

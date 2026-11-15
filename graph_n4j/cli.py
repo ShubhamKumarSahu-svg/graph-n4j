@@ -1,5 +1,5 @@
 """
-cli.py — Command-line interface for graph-n4j.
+cli.py - Command-line interface for graph-n4j.
 
 Entry point for the `graph-n4j` command installed by pip.
 
@@ -18,12 +18,12 @@ import json
 import logging
 import sys
 
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 
 def _render_markdown(text: str) -> None:
     """Render markdown text beautifully in the terminal using rich.
-    
+
     Falls back to plain text output if rich is not available.
     """
     try:
@@ -32,13 +32,15 @@ def _render_markdown(text: str) -> None:
         from rich.panel import Panel
         from rich.theme import Theme
 
-        custom_theme = Theme({
-            "markdown.h1": "bold bright_cyan",
-            "markdown.h2": "bold bright_green",
-            "markdown.h3": "bold bright_yellow",
-            "markdown.code": "bright_magenta on grey11",
-            "markdown.link": "bright_blue underline",
-        })
+        custom_theme = Theme(
+            {
+                "markdown.h1": "bold bright_cyan",
+                "markdown.h2": "bold bright_green",
+                "markdown.h3": "bold bright_yellow",
+                "markdown.code": "bright_magenta on grey11",
+                "markdown.link": "bright_blue underline",
+            }
+        )
 
         console = Console(theme=custom_theme)
         md = Markdown(text)
@@ -66,24 +68,31 @@ def main():
         description="Bridge LLM agents with code repositories via Neo4j graph databases.",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true",
+        "-v",
+        "--verbose",
+        action="store_true",
         help="Enable verbose (DEBUG) logging",
     )
     parser.add_argument(
-        "-m", "--model", help="Override the Groq LLM model to use (e.g. llama-3.3-70b-versatile)",
+        "-m",
+        "--model",
+        help="Override the selected provider model",
     )
-    
+
     from graph_n4j import __version__
+
     parser.add_argument(
-        "--version", action="version",
+        "--version",
+        action="version",
         version=f"%(prog)s {__version__}",
         help="Show program's version number and exit",
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # ── index ─────────────────────────────────────────────
-    p_index = subparsers.add_parser("index", help="Index a local Python repository")
-    p_index.add_argument("repo_path", help="Path to the Python repository")
+    p_index = subparsers.add_parser("index", help="Index a local Python or C++ repository")
+    p_index.add_argument("--legacy-2pass", action="store_true")
+    p_index.add_argument("repo_path", help="Path to the repository")
     p_index.add_argument("--repo-id", help="Override the repo identifier")
     p_index.add_argument("--clear", action="store_true", help="Clear existing data before indexing")
     p_index.add_argument("--stats", action="store_true", help="Show graph stats after indexing")
@@ -92,12 +101,15 @@ def main():
     p_github = subparsers.add_parser("index-github", help="Clone + index a GitHub repo")
     p_github.add_argument("url", help="GitHub URL or short form (e.g. pallets/click)")
     p_github.add_argument("--commit", help="Pin to a specific commit SHA")
-    p_github.add_argument("--clear", action="store_true", help="Clear existing data before indexing")
+    p_github.add_argument(
+        "--clear", action="store_true", help="Clear existing data before indexing"
+    )
     p_github.add_argument("--force", action="store_true", help="Force re-clone")
     p_github.add_argument("--stats", action="store_true", help="Show graph stats after indexing")
 
     # ── ask ───────────────────────────────────────────────
     p_ask = subparsers.add_parser("ask", help="Ask a question about the indexed repo")
+    p_ask.add_argument("--provider", choices=["groq", "openai", "anthropic", "gemini", "ollama"])
     p_ask.add_argument("question", help="Natural language question")
     p_ask.add_argument("--repo-id", help="Target repo ID (defaults to last indexed)")
     p_ask.add_argument("--max-rounds", type=int, default=5, help="Max retrieval rounds")
@@ -114,7 +126,9 @@ def main():
     subparsers.add_parser("view", help="View the graph visually in Neo4j Browser")
 
     # ── change-model ──────────────────────────────────────
-    p_chmodel = subparsers.add_parser("change-model", help="Change the default Groq LLM model in .env")
+    p_chmodel = subparsers.add_parser(
+        "change-model", help="Change the default Groq LLM model in .env"
+    )
     p_chmodel.add_argument("model_name", help="The new model name (e.g., llama-3.3-70b-versatile)")
 
     # ── clear ─────────────────────────────────────────────
@@ -138,8 +152,9 @@ def main():
         format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
     )
-    
-    # Silence overly verbose third-party loggers even in DEBUG mode unless specifically debugging them
+
+    # Silence overly verbose third-party loggers even in DEBUG mode unless specifically
+    # debugging them
     if not args.verbose:
         logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("neo4j").setLevel(logging.WARNING)
@@ -149,7 +164,7 @@ def main():
 
     g = None
     try:
-        g = GraphN4J.from_env(model_override=args.model)
+        g = GraphN4J.from_env(model_override=args.model, provider=getattr(args, "provider", None))
 
         if args.command == "index":
             _cmd_index(g, args)
@@ -171,21 +186,31 @@ def main():
             _cmd_change_model(args)
     except ValueError as e:
         print(f"\n[ERROR] Configuration Error: {e}")
-        print("Hint: Set the GROQ_API_KEY environment variable.")
+        print("Hint: Check the selected provider and its API key environment variable.")
         sys.exit(1)
     except KeyboardInterrupt:
         print("\nInterrupted.")
         sys.exit(130)
     except Exception as e:
         error_msg = str(e)
-        if "neo4j" in error_msg.lower() or "serviceunavailable" in str(type(e)).lower() or "auth" in error_msg.lower():
+        if (
+            "neo4j" in error_msg.lower()
+            or "serviceunavailable" in str(type(e)).lower()
+            or "auth" in error_msg.lower()
+        ):
             print(f"\n[ERROR] Database Connection Error: {error_msg}")
-            print("Hint: Make sure Neo4j is running and NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD are set correctly.")
+            print(
+                (
+                    "Hint: Make sure Neo4j is running and NEO4J_URI, NEO4J_USER, "
+                    "NEO4J_PASSWORD are set correctly."
+                )
+            )
         else:
             print(f"\n[ERROR] {error_msg}", file=sys.stderr)
-        
+
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
     finally:
@@ -195,11 +220,16 @@ def main():
 
 def _cmd_index(g, args):
     print(f"\n{'=' * 60}")
-    print(f"  graph-n4j — Indexing local repo")
+    print("  graph-n4j - Indexing local repo")
     print(f"  Path: {args.repo_path}")
     print(f"{'=' * 60}\n")
 
-    meta = g.index(args.repo_path, repo_id=args.repo_id, clear_existing=args.clear)
+    meta = g.index(
+        args.repo_path,
+        repo_id=args.repo_id,
+        clear_existing=args.clear,
+        legacy_2pass=args.legacy_2pass,
+    )
 
     print(f"\n  ✓ Indexed: {meta.repo_id}")
     print(f"  ✓ Commit:  {meta.short_sha()}")
@@ -212,7 +242,7 @@ def _cmd_index(g, args):
 
 def _cmd_index_github(g, args):
     print(f"\n{'=' * 60}")
-    print(f"  graph-n4j — Indexing GitHub repo")
+    print("  graph-n4j - Indexing GitHub repo")
     print(f"  URL: {args.url}")
     print(f"{'=' * 60}\n")
 
@@ -258,6 +288,7 @@ def _cmd_ask(g, args):
         try:
             from rich.console import Console
             from rich.text import Text
+
             console = Console()
             stats = Text()
             stats.append("  >> ", style="bright_yellow")
@@ -270,8 +301,10 @@ def _cmd_ask(g, args):
             console.print(stats)
             console.print()
         except ImportError:
-            print(f"  [{result.rounds_used} rounds, {result.total_queries} queries, "
-                  f"{result.neo4j_roundtrips} DB hits]")
+            print(
+                f"  [{result.rounds_used} rounds, {result.total_queries} queries, "
+                f"{result.neo4j_roundtrips} DB hits]"
+            )
 
 
 def _cmd_stats(g, args):
@@ -310,12 +343,18 @@ def _cmd_cypher(g, args):
 
 def _cmd_view():
     import webbrowser
+
     print("\nOpening Neo4j Browser...")
     print("If it doesn't open automatically, visit: http://localhost:7474")
     print("\nFastest way to view the complete graph:")
     print("Once logged in, paste this Cypher query in the top bar and press Enter:\n")
     print("    MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 300\n")
-    print("(Note: rendering an *entire* large codebase at once can freeze your browser, so we limit it to 300 relationships!)\n")
+    print(
+        (
+            "(Note: rendering an *entire* large codebase at once can freeze "
+            "your browser, so we limit it to 300 relationships!)\n"
+        )
+    )
     try:
         webbrowser.open("http://localhost:7474")
     except Exception:
@@ -324,8 +363,9 @@ def _cmd_view():
 
 def _cmd_change_model(args):
     import os
-    from dotenv import set_key, find_dotenv
-    
+
+    from dotenv import find_dotenv, set_key
+
     dotenv_path = find_dotenv(usecwd=True)
     if not dotenv_path:
         dotenv_path = os.path.join(os.getcwd(), ".env")
@@ -333,7 +373,7 @@ def _cmd_change_model(args):
             f.write(f"GROQ_MODEL={args.model_name}\n")
     else:
         set_key(dotenv_path, "GROQ_MODEL", args.model_name)
-        
+
     print(f"\n[OK] Default model permanently changed to: {args.model_name}")
     print(f"Updated config file: {dotenv_path}\n")
 
@@ -345,7 +385,7 @@ def _print_stats(g, repo_id=None):
     for label in ["MODULE", "CLASS", "FUNCTION", "METHOD", "FIELD", "GLOBAL_VARIABLE"]:
         print(f"    {label:20s} {stats.get(label, 0):>6d}")
     print("  Edges:")
-    for rel in ["CONTAINS", "HAS_METHOD", "HAS_FIELD", "INHERITS", "USES"]:
+    for rel in ["CONTAINS", "HAS_METHOD", "HAS_FIELD", "INHERITS", "USES", "CALLS", "IMPORTS"]:
         print(f"    {rel:20s} {stats.get(rel, 0):>6d}")
 
 

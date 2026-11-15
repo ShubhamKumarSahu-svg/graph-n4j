@@ -16,20 +16,19 @@ import os
 import time
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
-from typing import Any, Optional
+from typing import Optional, cast
 
 import diskcache
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CACHE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), ".cache"
-)
+DEFAULT_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache")
 
 
 # ===========================================================================
-# B1 — Graph structure skeleton cache
+# B1 - Graph structure skeleton cache
 # ===========================================================================
+
 
 @dataclass
 class RepoSkeleton:
@@ -38,10 +37,12 @@ class RepoSkeleton:
     No code bodies. Used to give the Primary Agent a "map" of the repo without
     burning tokens re-discovering it via round-trip queries each time.
     """
+
     repo_id: str
     commit_sha: str
     modules: list[dict] = field(default_factory=list)
-    # Each module: {name, file_path, classes: [{name, methods: [name], fields: [name]}], functions: [name], globals: [name]}
+    # Each module: {name, file_path, classes: [{name, methods: [name], fields: [name]}],
+    # functions: [name], globals: [name]}
     built_at: float = 0.0
 
     def to_prompt_text(self, max_chars: int = 4000) -> str:
@@ -96,79 +97,31 @@ class SkeletonCache:
         """
         Build a skeleton by querying Neo4j for node names (no code bodies).
         """
-        from graph_n4j.graph_db import GraphDB
-
         skeleton = RepoSkeleton(repo_id=repo_id, commit_sha=commit_sha, built_at=time.time())
-
-        # Fetch modules and their contents
-        modules_data = graph_db.run_query(
+        skeleton.modules = graph_db.run_query(
             "MATCH (m:MODULE {repo_id: $repo_id}) "
-            "RETURN m.name AS name, m.file_path AS file_path ORDER BY m.name",
+            "RETURN m.name AS name, m.file_path AS file_path, "
+            "[(m)-[:CONTAINS]->(c:CLASS) | {name: c.name, "
+            "methods: [(c)-[:HAS_METHOD]->(f:METHOD) | f.name], "
+            "fields: [(c)-[:HAS_FIELD]->(v:FIELD) | v.name]}] AS classes, "
+            "[(m)-[:CONTAINS]->(f:FUNCTION) | f.name] AS functions, "
+            "[(m)-[:CONTAINS]->(g:GLOBAL_VARIABLE) | g.name] AS globals ORDER BY name",
             {"repo_id": repo_id},
         )
 
-        for mod_row in modules_data:
-            mod_entry = {
-                "name": mod_row["name"],
-                "file_path": mod_row["file_path"],
-                "classes": [],
-                "functions": [],
-                "globals": [],
-            }
-
-            # Classes in this module
-            classes = graph_db.run_query(
-                "MATCH (m:MODULE {name: $mod_name, repo_id: $repo_id})-[:CONTAINS]->(c:CLASS) "
-                "RETURN c.name AS name",
-                {"mod_name": mod_row["name"], "repo_id": repo_id},
-            )
-            for cls_row in classes:
-                cls_entry = {"name": cls_row["name"], "methods": [], "fields": []}
-                # Methods
-                methods = graph_db.run_query(
-                    "MATCH (c:CLASS {name: $cls_name, repo_id: $repo_id})-[:HAS_METHOD]->(m:METHOD) "
-                    "RETURN m.name AS name",
-                    {"cls_name": cls_row["name"], "repo_id": repo_id},
-                )
-                cls_entry["methods"] = [m["name"] for m in methods]
-                # Fields
-                fields = graph_db.run_query(
-                    "MATCH (c:CLASS {name: $cls_name, repo_id: $repo_id})-[:HAS_FIELD]->(f:FIELD) "
-                    "RETURN f.name AS name",
-                    {"cls_name": cls_row["name"], "repo_id": repo_id},
-                )
-                cls_entry["fields"] = [f["name"] for f in fields]
-                mod_entry["classes"].append(cls_entry)
-
-            # Functions
-            functions = graph_db.run_query(
-                "MATCH (m:MODULE {name: $mod_name, repo_id: $repo_id})-[:CONTAINS]->(f:FUNCTION) "
-                "RETURN f.name AS name",
-                {"mod_name": mod_row["name"], "repo_id": repo_id},
-            )
-            mod_entry["functions"] = [f["name"] for f in functions]
-
-            # Globals
-            gvars = graph_db.run_query(
-                "MATCH (m:MODULE {name: $mod_name, repo_id: $repo_id})-[:CONTAINS]->(g:GLOBAL_VARIABLE) "
-                "RETURN g.name AS name",
-                {"mod_name": mod_row["name"], "repo_id": repo_id},
-            )
-            mod_entry["globals"] = [g["name"] for g in gvars]
-
-            skeleton.modules.append(mod_entry)
-
         self.put(skeleton)
         logger.info(
-            "Built skeleton for %s — %d modules",
-            self._key(repo_id, commit_sha), len(skeleton.modules),
+            "Built skeleton for %s - %d modules",
+            self._key(repo_id, commit_sha),
+            len(skeleton.modules),
         )
         return skeleton
 
 
 # ===========================================================================
-# B2 — Query result cache + NL->Cypher translation cache
+# B2 - Query result cache + NL->Cypher translation cache
 # ===========================================================================
+
 
 class QueryCache:
     """
@@ -202,9 +155,7 @@ class QueryCache:
         raw = f"{repo_id}|{commit_sha[:12]}|{cypher}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
-    def get_cypher_result(
-        self, cypher: str, repo_id: str, commit_sha: str
-    ) -> Optional[list[dict]]:
+    def get_cypher_result(self, cypher: str, repo_id: str, commit_sha: str) -> Optional[list[dict]]:
         """Lookup cached Cypher query result."""
         if not self.enabled:
             return None
@@ -213,13 +164,11 @@ class QueryCache:
         if result is not None:
             self.cypher_hits += 1
             logger.debug("Cypher cache HIT: %s", cypher[:60])
-            return result
+            return cast(list[dict], result)
         self.cypher_misses += 1
         return None
 
-    def put_cypher_result(
-        self, cypher: str, repo_id: str, commit_sha: str, result: list[dict]
-    ):
+    def put_cypher_result(self, cypher: str, repo_id: str, commit_sha: str, result: list[dict]):
         """Cache a Cypher query result."""
         if not self.enabled:
             return
@@ -241,7 +190,7 @@ class QueryCache:
         if result is not None:
             self.translation_hits += 1
             logger.debug("Translation cache HIT (exact): %s", nl_query[:60])
-            return result
+            return str(result)
         # Near-duplicate detection via simple string similarity
         result = self._find_similar_translation(nl_query)
         if result is not None:
@@ -271,7 +220,7 @@ class QueryCache:
                     result = self._translation_cache.get(key)
                     if result:
                         logger.debug("Translation cache HIT (similar): %s", nl_query[:60])
-                        return result
+                        return str(result)
             except Exception:
                 continue
         return None
@@ -289,9 +238,7 @@ class QueryCache:
         return {
             "cypher_hits": self.cypher_hits,
             "cypher_misses": self.cypher_misses,
-            "cypher_hit_rate": (
-                self.cypher_hits / max(1, self.cypher_hits + self.cypher_misses)
-            ),
+            "cypher_hit_rate": (self.cypher_hits / max(1, self.cypher_hits + self.cypher_misses)),
             "translation_hits": self.translation_hits,
             "translation_misses": self.translation_misses,
             "translation_hit_rate": (
@@ -308,8 +255,9 @@ class QueryCache:
 
 
 # ===========================================================================
-# B3 — Context pruning: track seen nodes
+# B3 - Context pruning: track seen nodes
 # ===========================================================================
+
 
 class ContextTracker:
     """
@@ -321,12 +269,19 @@ class ContextTracker:
     def __init__(self, enabled: bool = True):
         self.enabled = enabled
         self._seen_nodes: dict[str, str] = {}  # node_key -> label
-        self._seen_code: dict[str, int] = {}    # node_key -> round when first seen
+        self._seen_code: dict[str, int] = {}  # node_key -> round when first seen
 
     def _node_key(self, record: dict) -> Optional[str]:
         """Generate a unique key for a node from its properties."""
-        name = record.get("name") or record.get("c.name") or record.get("f.name") or record.get("m.name")
-        file_path = record.get("file_path") or record.get("c.file_path") or record.get("f.file_path")
+        name = (
+            record.get("name")
+            or record.get("c.name")
+            or record.get("f.name")
+            or record.get("m.name")
+        )
+        file_path = (
+            record.get("file_path") or record.get("c.file_path") or record.get("f.file_path")
+        )
         if name:
             return f"{name}:{file_path or '?'}"
         return None
@@ -355,8 +310,7 @@ class ContextTracker:
                 if current_node_key in self._seen_code:
                     seen_round = self._seen_code[current_node_key]
                     output_lines.append(
-                        f"  code: [already retrieved in round {seen_round}, "
-                        f"see {current_node_key}]"
+                        f"  code: [already retrieved in round {seen_round}, see {current_node_key}]"
                     )
                     continue
                 else:
@@ -382,8 +336,9 @@ class ContextTracker:
 
 
 # ===========================================================================
-# B4 — Result truncation / relevance filtering
+# B4 - Result truncation / relevance filtering
 # ===========================================================================
+
 
 def truncate_results(
     records: list[dict],
@@ -406,8 +361,9 @@ def truncate_results(
 
 
 # ===========================================================================
-# B6 — Early-stopping heuristic
+# B6 - Early-stopping heuristic
 # ===========================================================================
+
 
 def should_early_stop(
     current_results: list[str],
@@ -432,3 +388,80 @@ def should_early_stop(
         return True, "Results identical to previous round"
 
     return False, ""
+
+
+class IncrementalCache:
+    """Serialize extraction records and invalidate reverse import dependents."""
+
+    @staticmethod
+    def encode(parsed) -> str:
+        from dataclasses import asdict
+
+        def identity(symbol):
+            return (
+                symbol.label,
+                symbol.name,
+                symbol.class_name,
+                symbol.source.byte_start,
+                symbol.source.byte_end,
+            )
+
+        indexes = {identity(symbol): index for index, symbol in enumerate(parsed.symbols)}
+        return json.dumps(
+            {
+                "format_version": 1,
+                "module": indexes[identity(parsed.module)],
+                "symbols": [asdict(symbol) for symbol in parsed.symbols],
+                "references": [
+                    dict(
+                        kind=ref.kind,
+                        target=ref.target,
+                        alias=ref.alias,
+                        source=indexes[identity(ref.source)],
+                    )
+                    for ref in parsed.references
+                ],
+                "content_hash": parsed.content_hash,
+            }
+        )
+
+    @staticmethod
+    def decode(data: str):
+        from graph_n4j.parsers.base import (
+            ParsedFile,
+            ParsedReference,
+            ParsedSymbol,
+            SourceReference,
+        )
+
+        def symbol(row):
+            return ParsedSymbol(**dict(row, source=SourceReference(**row["source"])))
+
+        row = json.loads(data)
+        symbols = [symbol(s) for s in row["symbols"]]
+        if row.get("format_version") == 1:
+            return ParsedFile(
+                symbols[row["module"]],
+                symbols,
+                [
+                    ParsedReference(**dict(r, source=symbols[r["source"]]))
+                    for r in row["references"]
+                ],
+                row["content_hash"],
+            )
+        # Read extraction records written before compact reference encoding.
+        return ParsedFile(
+            symbol(row["module"]),
+            symbols,
+            [ParsedReference(**dict(r, source=symbol(r["source"]))) for r in row["references"]],
+            row["content_hash"],
+        )
+
+    @staticmethod
+    def reverse_invalidated(changed: set[str], dependencies: dict[str, set[str]]) -> set[str]:
+        affected = set(changed)
+        while True:
+            more = {path for path, imports in dependencies.items() if imports & affected}
+            if more <= affected:
+                return affected
+            affected.update(more)

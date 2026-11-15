@@ -1,5 +1,5 @@
 """
-code_unittester.py — Application 3: Automated unit test generation.
+code_unittester.py - Application 3: Automated unit test generation.
 
 Takes a class or function name, retrieves its full context (methods, inheritance,
 fields, dependencies) from the graph, and generates comprehensive test code.
@@ -77,5 +77,5 @@ class CodeUnitTester:
             f"First retrieve the implementation of '{target}', its dependencies, "
             f"inheritance chain, and any related components. Then generate pytest tests."
         )
-        logger.info("CodeUnitTester — target: '%s'", target)
+        logger.info("CodeUnitTester - target: '%s'", target)
         return self.pipeline.run(question)

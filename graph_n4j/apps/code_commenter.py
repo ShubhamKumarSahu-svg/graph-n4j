@@ -1,5 +1,5 @@
 """
-code_commenter.py — Application 5: Docstring and comment generation.
+code_commenter.py - Application 5: Docstring and comment generation.
 
 Takes a file path or function/class name, retrieves its structural context from
 the graph (relationships, callers, inheritance), and generates contextually
@@ -14,7 +14,8 @@ from graph_n4j.llm.groq_client import GroqClient
 
 logger = logging.getLogger(__name__)
 
-TASK_INSTRUCTION = """You are a documentation expert generating docstrings and comments for Python code.
+TASK_INSTRUCTION = """You are a documentation expert generating docstrings and comments for
+Python code.
 
 Your goal is to:
 1. Retrieve the target function/class/module and its code
@@ -80,5 +81,5 @@ class CodeCommenter:
             f"(inheritance, methods, fields, usage), and structural context. "
             f"Then generate thorough documentation."
         )
-        logger.info("CodeCommenter — target: '%s'", target)
+        logger.info("CodeCommenter - target: '%s'", target)
         return self.pipeline.run(question)

@@ -1,5 +1,5 @@
 """
-code_generator.py — Application 4: Feature-driven code generation.
+code_generator.py - Application 4: Feature-driven code generation.
 
 Takes a feature request, explores the existing codebase via graph queries to
 understand relevant patterns and structures, then generates new code that
@@ -72,5 +72,5 @@ class CodeGenerator:
         Returns:
             PipelineResult with generated code and integration instructions.
         """
-        logger.info("CodeGenerator — feature: '%s'", feature_request[:100])
+        logger.info("CodeGenerator - feature: '%s'", feature_request[:100])
         return self.pipeline.run(feature_request)

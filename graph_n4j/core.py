@@ -1,5 +1,5 @@
 """
-core.py — High-level facade for graph-n4j.
+core.py - High-level facade for graph-n4j.
 
 Provides a single `GraphN4J` class that wraps all internal components
 (GraphDB, GroqClient, indexer, pipeline, apps) behind a simple API.
@@ -22,15 +22,16 @@ import os
 import time
 from typing import Optional
 
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
 
+from graph_n4j.agents.pipeline import CodexGraphPipeline, PipelineResult
+from graph_n4j.cache import QueryCache, SkeletonCache
 from graph_n4j.graph_db import GraphDB
+from graph_n4j.indexer.edge_completion import complete_edges
+from graph_n4j.indexer.shallow_index import shallow_index_repo
+from graph_n4j.llm.base import BaseLLMClient
 from graph_n4j.llm.groq_client import GroqClient
 from graph_n4j.repo_manager import RepoManager, RepoMetadata
-from graph_n4j.indexer.shallow_index import shallow_index_repo
-from graph_n4j.indexer.edge_completion import complete_edges
-from graph_n4j.agents.pipeline import CodexGraphPipeline, PipelineResult
-from graph_n4j.cache import SkeletonCache, QueryCache
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,8 @@ class GraphN4J:
         neo4j_database: str = "neo4j",
         cache_dir: Optional[str] = None,
         repos_dir: Optional[str] = None,
+        provider: str = "groq",
+        model: Optional[str] = None,
     ):
         """
         Initialize graph-n4j.
@@ -67,7 +70,10 @@ class GraphN4J:
             cache_dir: Directory for query/translation caches.
             repos_dir: Directory for cloned GitHub repos.
         """
-        self.client = GroqClient(api_key=groq_api_key, model=groq_model)
+        self.provider = provider
+        self._client: BaseLLMClient | None = None
+        self._groq_api_key = groq_api_key
+        self._model = model or (groq_model if provider == "groq" else None)
         self.db = GraphDB(
             uri=neo4j_uri,
             user=neo4j_user,
@@ -82,10 +88,27 @@ class GraphN4J:
         self._current_meta: Optional[RepoMetadata] = None
         self._connected = False
 
+    @property
+    def client(self) -> BaseLLMClient:
+        if self._client is None:
+            from graph_n4j.llm import create_client
+
+            self._client = (
+                GroqClient(api_key=self._groq_api_key, model=self._model)
+                if self.provider == "groq"
+                else create_client(self.provider, self._model)
+            )
+        return self._client
+
     # ── Factory methods ──────────────────────────────────────
 
     @classmethod
-    def from_env(cls, dotenv_path: Optional[str] = None, model_override: Optional[str] = None) -> "GraphN4J":
+    def from_env(
+        cls,
+        dotenv_path: Optional[str] = None,
+        model_override: Optional[str] = None,
+        provider: Optional[str] = None,
+    ) -> "GraphN4J":
         """
         Create a GraphN4J instance from environment variables.
 
@@ -101,7 +124,9 @@ class GraphN4J:
         load_dotenv(dotenv_path, override=True, encoding="utf-8-sig")
         return cls(
             groq_api_key=os.getenv("GROQ_API_KEY"),
-            groq_model=model_override or os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
+            groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            provider=provider or os.getenv("LLM_PROVIDER") or "groq",
+            model=model_override,
             neo4j_uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
             neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
             neo4j_password=os.getenv("NEO4J_PASSWORD", "password"),
@@ -139,6 +164,7 @@ class GraphN4J:
         repo_path: str,
         repo_id: Optional[str] = None,
         clear_existing: bool = False,
+        legacy_2pass: bool = False,
     ) -> RepoMetadata:
         """
         Index a local Python repository into Neo4j.
@@ -157,13 +183,14 @@ class GraphN4J:
         if clear_existing:
             self.db.clear_repo(meta.repo_id)
 
-        return self._run_indexing(meta)
+        return self._run_indexing(meta, legacy_2pass)
 
     def index_github(
         self,
         url: str,
         commit_sha: Optional[str] = None,
         clear_existing: bool = False,
+        legacy_2pass: bool = False,
         force_clone: bool = False,
     ) -> RepoMetadata:
         """
@@ -184,32 +211,51 @@ class GraphN4J:
         if clear_existing:
             self.db.clear_repo(meta.repo_id)
 
-        return self._run_indexing(meta)
+        return self._run_indexing(meta, legacy_2pass)
 
-    def _run_indexing(self, meta: RepoMetadata) -> RepoMetadata:
+    def _run_indexing(self, meta: RepoMetadata, legacy_2pass: bool = False) -> RepoMetadata:
         """Run Phase 1 (shallow index) and Phase 2 (edge completion)."""
         t0 = time.time()
 
-        # Phase 1: Shallow indexing
-        logger.info("Phase 1: Shallow indexing %s ...", meta.repo_id)
-        index_result = shallow_index_repo(meta.local_path)
-        logger.info("Phase 1 complete: %s", index_result.summary())
+        if legacy_2pass:
+            # Phase 1: Shallow indexing
+            logger.info("Phase 1: Shallow indexing %s ...", meta.repo_id)
+            index_result = shallow_index_repo(
+                meta.local_path, self.repo_manager.get_python_files(meta)
+            )
+            logger.info("Phase 1 complete: %s", index_result.summary())
 
-        # Phase 2: Edge completion
-        logger.info("Phase 2: Edge completion ...")
-        complete_edges(index_result, self.db, meta.local_path)
+            # Phase 2: Edge completion
+            logger.info("Phase 2: Edge completion ...")
+            complete_edges(
+                index_result,
+                self.db,
+                meta.local_path,
+                repo_id=meta.repo_id,
+                commit_sha=meta.commit_sha,
+            )
+
+        else:
+            from graph_n4j.indexer.unified_indexer import UnifiedIndexer
+
+            files = self.repo_manager.get_source_files(meta)
+            UnifiedIndexer(self.db).index(meta.local_path, files, meta.repo_id, meta.commit_sha)
 
         meta.index_time = time.time() - t0
         logger.info(
             "Indexing complete for %s in %.1fs",
-            meta.repo_id, meta.index_time,
+            meta.repo_id,
+            meta.index_time,
         )
 
+        self.query_cache.clear()
         self._current_meta = meta
 
         # Pre-build skeleton for fast queries
         self.skeleton_cache.build_from_db(
-            self.db, meta.repo_id, meta.commit_sha,
+            self.db,
+            meta.repo_id,
+            meta.commit_sha,
         )
 
         return meta
@@ -258,10 +304,27 @@ class GraphN4J:
             commit_sha=commit_sha,
             skeleton_cache=self.skeleton_cache,
             query_cache=self.query_cache,
+            translation_model=(
+                os.getenv("GROQ_MODEL_TRANSLATION")
+                if self.provider == "groq"
+                else os.getenv("LLM_TRANSLATION_MODEL")
+            ),
         )
         return pipeline.run(question)
 
     # ── Utility ──────────────────────────────────────────────
+
+    def search_symbols(
+        self, query: str, repo_id: Optional[str] = None, limit: int = 20
+    ) -> list[dict]:
+        self._ensure_connected()
+        rid = repo_id or (self._current_meta.repo_id if self._current_meta else "")
+        return self.db.run_query(
+            "CALL db.index.fulltext.queryNodes('symbol_search_idx', $query) YIELD node, score "
+            "WHERE node.repo_id = $repo_id RETURN node.name AS name, node.file_path AS file_path, "
+            "node.signature AS signature, score ORDER BY score DESC LIMIT $limit",
+            {"query": query, "repo_id": rid, "limit": limit},
+        )
 
     def stats(self, repo_id: Optional[str] = None) -> dict:
         """Get graph statistics (node/edge counts)."""

@@ -10,16 +10,16 @@ Handles:
 """
 
 import json
+import logging
 import os
 import re
-import logging
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
 from fnmatch import fnmatch
+from typing import Optional
 
-from git import Repo as GitRepo, InvalidGitRepositoryError
+from git import InvalidGitRepositoryError
+from git import Repo as GitRepo
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +29,31 @@ DEFAULT_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "re
 
 # Directories to always exclude from indexing
 EXCLUDED_DIRS = {
-    ".git", ".hg", ".svn", "__pycache__", ".mypy_cache", ".pytest_cache",
-    "node_modules", ".tox", ".venv", "venv", "env", ".env", ".eggs",
-    "build", "dist", "vendor", "vendored", "migrations", ".nox",
-    "htmlcov", ".hypothesis", "docs", "doc", "examples", "benchmarks",
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    "node_modules",
+    ".tox",
+    ".venv",
+    "venv",
+    "env",
+    ".env",
+    ".eggs",
+    "build",
+    "dist",
+    "vendor",
+    "vendored",
+    "migrations",
+    ".nox",
+    "htmlcov",
+    ".hypothesis",
+    "docs",
+    "doc",
+    "examples",
+    "benchmarks",
 }
 
 # File-name patterns to exclude (tests, per Section 4 of the paper)
@@ -48,11 +69,14 @@ EXCLUDED_FILE_PATTERNS = [
 
 # Directory patterns to exclude (tests)
 EXCLUDED_DIR_PATTERNS = [
-    "tests", "test", "testing", "Tests",
+    "tests",
+    "test",
+    "testing",
+    "Tests",
 ]
 
-MAX_FILE_SIZE_BYTES = 500_000        # 500 KB per file (skip generated / data files)
-MAX_TOTAL_FILES = 2000               # Hard cap; warn if exceeded
+MAX_FILE_SIZE_BYTES = 500_000  # 500 KB per file (skip generated / data files)
+MAX_TOTAL_FILES = 2000  # Hard cap; warn if exceeded
 
 # ---- Recommended repos -------------------------------------------------------
 
@@ -78,10 +102,11 @@ RECOMMENDED_REPOS = {
 @dataclass
 class RepoMetadata:
     """Metadata about an indexed repository."""
-    repo_id: str                  # e.g. "pallets/click"
-    commit_sha: str               # full SHA of the indexed commit
-    repo_url: Optional[str]       # GitHub URL (None for local repos)
-    local_path: str               # path to the cloned/local directory
+
+    repo_id: str  # e.g. "pallets/click"
+    commit_sha: str  # full SHA of the indexed commit
+    repo_url: Optional[str]  # GitHub URL (None for local repos)
+    local_path: str  # path to the cloned/local directory
     clone_time: Optional[float] = None
     index_time: Optional[float] = None
     total_files: int = 0
@@ -111,6 +136,7 @@ class RepoMetadata:
 @dataclass
 class FilterConfig:
     """Configurable indexing filter settings."""
+
     exclude_tests: bool = True
     exclude_vendored: bool = True
     max_file_size: int = MAX_FILE_SIZE_BYTES
@@ -120,6 +146,7 @@ class FilterConfig:
 
 
 # ---- Repo Manager ------------------------------------------------------------
+
 
 class RepoManager:
     """
@@ -167,6 +194,7 @@ class RepoManager:
             logger.info("Cloning %s into %s ...", full_url, local_dir)
             if os.path.isdir(local_dir):
                 import shutil
+
                 shutil.rmtree(local_dir)
             git_repo = GitRepo.clone_from(full_url, local_dir)
 
@@ -191,8 +219,10 @@ class RepoManager:
         self._save_metadata(meta, local_dir)
 
         logger.info(
-            "Repo %s ready — commit %s, cloned in %.1fs",
-            repo_id, meta.short_sha(), clone_time,
+            "Repo %s ready - commit %s, cloned in %.1fs",
+            repo_id,
+            meta.short_sha(),
+            clone_time,
         )
         return meta
 
@@ -238,7 +268,7 @@ class RepoManager:
 
     # ---- File filtering (Section 4 of the paper) -----------------------------
 
-    def get_python_files(
+    def get_source_files(
         self,
         meta: RepoMetadata,
         filter_config: Optional[FilterConfig] = None,
@@ -278,14 +308,10 @@ class RepoManager:
 
         for root, dirs, files in os.walk(repo_root):
             # Prune excluded directories in-place
-            dirs[:] = [
-                d for d in dirs
-                if d not in excluded_dirs
-                and not d.endswith(".egg-info")
-            ]
+            dirs[:] = [d for d in dirs if d not in excluded_dirs and not d.endswith(".egg-info")]
 
             for fname in files:
-                if not fname.endswith(".py"):
+                if not fname.endswith((".py", ".cpp", ".cc", ".hpp", ".h", ".cxx", ".hxx")):
                     continue
 
                 # Check file name patterns
@@ -312,7 +338,8 @@ class RepoManager:
                     logger.warning(
                         "Max file limit (%d) reached for %s. "
                         "Increase max_total_files or narrow filtering.",
-                        config.max_total_files, meta.repo_id,
+                        config.max_total_files,
+                        meta.repo_id,
                     )
                     break
 
@@ -323,15 +350,22 @@ class RepoManager:
         meta.skipped_files = skipped
         logger.info(
             "Found %d .py files (%d skipped) for %s",
-            len(py_files), skipped, meta.repo_id,
+            len(py_files),
+            skipped,
+            meta.repo_id,
         )
         return py_files
+
+    def get_python_files(
+        self, meta: RepoMetadata, filter_config: Optional[FilterConfig] = None
+    ) -> list[str]:
+        return [p for p in self.get_source_files(meta, filter_config) if p.endswith(".py")]
 
     # ---- List indexed repos --------------------------------------------------
 
     def list_cached_repos(self) -> list[RepoMetadata]:
         """List all repos in the local cache with their metadata."""
-        repos = []
+        repos: list[RepoMetadata] = []
         if not os.path.isdir(self.cache_dir):
             return repos
 

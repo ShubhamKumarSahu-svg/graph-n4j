@@ -1,5 +1,5 @@
 """
-primary_agent.py — The Primary Agent in CodexGraph's dual-agent architecture.
+primary_agent.py - The Primary Agent in CodexGraph's dual-agent architecture.
 
 Per Section 3.2 of the paper, the Primary Agent:
   - Receives the user's code question + accumulated context from prior rounds
@@ -9,9 +9,8 @@ Per Section 3.2 of the paper, the Primary Agent:
 """
 
 import logging
-from typing import Optional
 
-from graph_n4j.llm.groq_client import GroqClient
+from graph_n4j.llm.base import BaseLLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +67,13 @@ When sufficient_context is true, include a "final_answer" field:
 - Be precise: "Find the class named X" is better than "find the relevant class"
 - {query_mode_instruction}
 - Use information from previous rounds to refine your queries
-- Do NOT write Cypher — write natural language descriptions of what to retrieve
+- Do NOT write Cypher - write natural language descriptions of what to retrieve
 """
 
 SINGLE_QUERY_INSTRUCTION = "Generate exactly ONE query per round (best for complex reasoning tasks)"
-MULTIPLE_QUERIES_INSTRUCTION = "Generate up to 3 queries per round (best for gathering broad context quickly)"
+MULTIPLE_QUERIES_INSTRUCTION = (
+    "Generate up to 3 queries per round (best for gathering broad context quickly)"
+)
 
 
 def get_system_prompt(
@@ -88,8 +89,7 @@ def get_system_prompt(
             (e.g., Code Debugger, Code Generator, etc.)
     """
     instruction = (
-        SINGLE_QUERY_INSTRUCTION if query_mode == "single_query"
-        else MULTIPLE_QUERIES_INSTRUCTION
+        SINGLE_QUERY_INSTRUCTION if query_mode == "single_query" else MULTIPLE_QUERIES_INSTRUCTION
     )
 
     prompt = PRIMARY_SYSTEM_PROMPT.format(query_mode_instruction=instruction)
@@ -104,6 +104,7 @@ def get_system_prompt(
 # Primary Agent class
 # ═══════════════════════════════════════════
 
+
 class PrimaryAgent:
     """
     The Primary Agent: analyzes the user's question, generates NL graph queries,
@@ -112,7 +113,7 @@ class PrimaryAgent:
 
     def __init__(
         self,
-        groq_client: GroqClient,
+        groq_client: BaseLLMClient,
         query_mode: str = "single_query",
         task_instruction: str = "",
         temperature: float = 0.3,
@@ -148,13 +149,11 @@ class PrimaryAgent:
             user_content += "\n## Context from Previous Rounds\n"
             for entry in context_history:
                 user_content += f"\n### Round {entry['round']}\n"
-                for i, (query, result) in enumerate(
-                    zip(entry["queries"], entry["results"]), 1
-                ):
+                for i, (query, result) in enumerate(zip(entry["queries"], entry["results"]), 1):
                     user_content += f"**Query {i}:** {query}\n"
                     user_content += f"**Result:** {result}\n\n"
         else:
-            user_content += "\n(This is the first round — no prior context.)\n"
+            user_content += "\n(This is the first round - no prior context.)\n"
 
         messages.append({"role": "user", "content": user_content})
 
@@ -168,6 +167,7 @@ class PrimaryAgent:
             logger.warning("Primary Agent JSON mode failed: %s. Retrying without JSON mode.", e)
             import json as _json
             import re as _re
+
             raw = self.client.chat(
                 messages=messages,
                 temperature=self.temperature,
@@ -209,7 +209,7 @@ class PrimaryAgent:
             response["queries"] = response["queries"][:1]
 
         logger.info(
-            "Primary Agent — round analysis: %s queries, sufficient=%s",
+            "Primary Agent - round analysis: %s queries, sufficient=%s",
             len(response["queries"]),
             response["sufficient_context"],
         )
