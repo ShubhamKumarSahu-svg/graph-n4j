@@ -1,1 +1,20 @@
-# graph_n4j.llm — LLM client wrappers (Groq) with retry and token tracking
+from graph_n4j.llm.base import BaseLLMClient
+
+
+def create_client(provider: str, model: str | None = None) -> BaseLLMClient:
+    from graph_n4j.llm.anthropic_client import AnthropicClient
+    from graph_n4j.llm.gemini_client import GeminiClient
+    from graph_n4j.llm.groq_client import GroqClient
+    from graph_n4j.llm.ollama_client import OllamaClient
+    from graph_n4j.llm.openai_client import OpenAIClient
+
+    clients: dict[str, type[BaseLLMClient]] = dict(
+        groq=GroqClient,
+        openai=OpenAIClient,
+        anthropic=AnthropicClient,
+        gemini=GeminiClient,
+        ollama=OllamaClient,
+    )
+    if provider not in clients:
+        raise ValueError(f"Unknown LLM provider: {provider}")
+    return clients[provider](model=model)
