@@ -9,14 +9,20 @@ Provides:
   - Query result formatting with optional truncation
 """
 
-import os
 import logging
+import os
 from typing import Any, Optional
 
-from neo4j import GraphDatabase, Driver, Session, Result
-from neo4j.exceptions import ServiceUnavailable, AuthError
+from neo4j import Driver, GraphDatabase, Result
+from neo4j.exceptions import AuthError, ServiceUnavailable
 
-from graph_n4j.schema import SCHEMA_CONSTRAINTS, SCHEMA_INDEXES
+from graph_n4j.schema import (
+    EDGE_TYPES,
+    NODE_LABELS,
+    SCHEMA_CONSTRAINTS,
+    SCHEMA_INDEXES,
+    SCHEMA_MIGRATIONS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +37,9 @@ class GraphDB:
         password: Optional[str] = None,
         database: str = "neo4j",
     ):
-        self.uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        self.user = user or os.getenv("NEO4J_USER", "neo4j")
-        self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        self.uri = uri or os.getenv("NEO4J_URI") or "bolt://localhost:7687"
+        self.user = user or os.getenv("NEO4J_USER") or "neo4j"
+        self.password = password or os.getenv("NEO4J_PASSWORD") or "password"
         self.database = database
         self._driver: Optional[Driver] = None
 
@@ -42,9 +48,7 @@ class GraphDB:
     def connect(self) -> "GraphDB":
         """Establish connection to Neo4j."""
         try:
-            self._driver = GraphDatabase.driver(
-                self.uri, auth=(self.user, self.password)
-            )
+            self._driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
             self._driver.verify_connectivity()
             logger.info("Connected to Neo4j at %s", self.uri)
         except ServiceUnavailable:
@@ -78,18 +82,8 @@ class GraphDB:
 
     def init_schema(self):
         """Create constraints and indexes. Safe to call repeatedly (IF NOT EXISTS)."""
-        with self.driver.session(database=self.database) as session:
-            for stmt in SCHEMA_CONSTRAINTS:
-                try:
-                    session.run(stmt)
-                except Exception as e:
-                    logger.warning("Constraint skipped (%s): %s", type(e).__name__, e)
-            for stmt in SCHEMA_INDEXES:
-                try:
-                    session.run(stmt)
-                except Exception as e:
-                    logger.warning("Index skipped (%s): %s", type(e).__name__, e)
-        logger.info("Schema initialization complete.")
+        for stmt in SCHEMA_MIGRATIONS + SCHEMA_CONSTRAINTS + SCHEMA_INDEXES:
+            self.run_write(stmt)
 
     # -- Wipe data (optional repo_id scoping) -----------------------------------
 
@@ -153,6 +147,64 @@ class GraphDB:
 
     # -- Bulk MERGE helpers (idempotent, repo-scoped) ---------------------------
 
+    def merge_nodes_batch(
+        self,
+        label: str,
+        nodes: list[dict[str, Any]],
+        repo_id: str,
+        commit_sha: str,
+        batch_size: int = 500,
+    ) -> None:
+        if label not in NODE_LABELS or batch_size <= 0:
+            raise ValueError("Invalid node label or batch size")
+        identity = "name: row.name, file_path: row.file_path, repo_id: $repo_id"
+        if label in ("METHOD", "FIELD"):
+            identity += ", class_name: row.class_name"
+        query = (
+            f"UNWIND $batch AS row MERGE (n:{label} {{{identity}}}) "
+            "SET n += row, n.repo_id = $repo_id, n.commit_sha = $commit_sha"
+        )
+        for offset in range(0, len(nodes), batch_size):
+            self.run_write(
+                query,
+                {
+                    "batch": nodes[offset : offset + batch_size],
+                    "repo_id": repo_id,
+                    "commit_sha": commit_sha,
+                },
+            )
+
+    def merge_edges_batch(
+        self, edge_type: str, edges: list[dict[str, Any]], repo_id: str, batch_size: int = 1000
+    ) -> None:
+        if edge_type not in EDGE_TYPES or batch_size <= 0:
+            raise ValueError("Invalid relationship type or batch size")
+        # Group by endpoint labels so indexed MATCH patterns remain selective.
+        groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        for edge in edges:
+            labels = (edge["source_label"], edge["target_label"])
+            if any(label not in NODE_LABELS for label in labels):
+                raise ValueError("Invalid endpoint label")
+            groups.setdefault(labels, []).append(edge)
+        for (src, dst), rows in groups.items():
+            patterns = []
+            for alias, label, key in (("s", src, "source"), ("t", dst, "target")):
+                identity = (
+                    f"name: row.{key}.name, file_path: row.{key}.file_path, repo_id: $repo_id"
+                )
+                if label in ("METHOD", "FIELD"):
+                    identity += f", class_name: row.{key}.class_name"
+                patterns.append(f"MATCH ({alias}:{label} {{{identity}}})")
+            query = (
+                "UNWIND $batch AS row "
+                + " ".join(patterns)
+                + f" MERGE (s)-[r:{edge_type}]->(t) SET r += coalesce(row.properties, {{}})"
+            )
+            for offset in range(0, len(rows), batch_size):
+                self.run_write(
+                    query, {"batch": rows[offset : offset + batch_size], "repo_id": repo_id}
+                )
+
     def merge_module(self, name: str, file_path: str, repo_id: str = "", commit_sha: str = ""):
         self.run_write(
             """
@@ -163,113 +215,202 @@ class GraphDB:
             {"name": name, "file_path": file_path, "repo_id": repo_id, "commit_sha": commit_sha},
         )
 
-    def merge_class(self, name: str, file_path: str, signature: str, code: str,
-                    repo_id: str = "", commit_sha: str = ""):
+    def merge_class(
+        self,
+        name: str,
+        file_path: str,
+        signature: str,
+        code: str,
+        repo_id: str = "",
+        commit_sha: str = "",
+    ):
         self.run_write(
             """
             MERGE (c:CLASS {name: $name, file_path: $file_path, repo_id: $repo_id})
             ON CREATE SET c.signature = $signature, c.code = $code, c.commit_sha = $commit_sha
             ON MATCH SET c.signature = $signature, c.code = $code, c.commit_sha = $commit_sha
             """,
-            {"name": name, "file_path": file_path, "signature": signature,
-             "code": code, "repo_id": repo_id, "commit_sha": commit_sha},
+            {
+                "name": name,
+                "file_path": file_path,
+                "signature": signature,
+                "code": code,
+                "repo_id": repo_id,
+                "commit_sha": commit_sha,
+            },
         )
 
-    def merge_function(self, name: str, file_path: str, signature: str, code: str,
-                       repo_id: str = "", commit_sha: str = ""):
+    def merge_function(
+        self,
+        name: str,
+        file_path: str,
+        signature: str,
+        code: str,
+        repo_id: str = "",
+        commit_sha: str = "",
+    ):
         self.run_write(
             """
             MERGE (f:FUNCTION {name: $name, file_path: $file_path, repo_id: $repo_id})
             ON CREATE SET f.signature = $signature, f.code = $code, f.commit_sha = $commit_sha
             ON MATCH SET f.signature = $signature, f.code = $code, f.commit_sha = $commit_sha
             """,
-            {"name": name, "file_path": file_path, "signature": signature,
-             "code": code, "repo_id": repo_id, "commit_sha": commit_sha},
+            {
+                "name": name,
+                "file_path": file_path,
+                "signature": signature,
+                "code": code,
+                "repo_id": repo_id,
+                "commit_sha": commit_sha,
+            },
         )
 
-    def merge_method(self, name: str, file_path: str, class_name: str,
-                     signature: str, code: str, repo_id: str = "", commit_sha: str = ""):
+    def merge_method(
+        self,
+        name: str,
+        file_path: str,
+        class_name: str,
+        signature: str,
+        code: str,
+        repo_id: str = "",
+        commit_sha: str = "",
+    ):
         self.run_write(
             """
-            MERGE (m:METHOD {name: $name, class_name: $class_name, file_path: $file_path, repo_id: $repo_id})
+            MERGE (m:METHOD {name: $name, class_name: $class_name, file_path: $file_path,
+            repo_id: $repo_id})
             ON CREATE SET m.signature = $signature, m.code = $code, m.commit_sha = $commit_sha
             ON MATCH SET m.signature = $signature, m.code = $code, m.commit_sha = $commit_sha
             """,
-            {"name": name, "file_path": file_path, "class_name": class_name,
-             "signature": signature, "code": code, "repo_id": repo_id, "commit_sha": commit_sha},
+            {
+                "name": name,
+                "file_path": file_path,
+                "class_name": class_name,
+                "signature": signature,
+                "code": code,
+                "repo_id": repo_id,
+                "commit_sha": commit_sha,
+            },
         )
 
-    def merge_field(self, name: str, file_path: str, class_name: str,
-                    repo_id: str = "", commit_sha: str = ""):
+    def merge_field(
+        self, name: str, file_path: str, class_name: str, repo_id: str = "", commit_sha: str = ""
+    ):
         self.run_write(
             """
-            MERGE (f:FIELD {name: $name, class_name: $class_name, file_path: $file_path, repo_id: $repo_id})
+            MERGE (f:FIELD {name: $name, class_name: $class_name, file_path: $file_path,
+            repo_id: $repo_id})
             ON CREATE SET f.commit_sha = $commit_sha
             ON MATCH SET f.commit_sha = $commit_sha
             """,
-            {"name": name, "file_path": file_path, "class_name": class_name,
-             "repo_id": repo_id, "commit_sha": commit_sha},
+            {
+                "name": name,
+                "file_path": file_path,
+                "class_name": class_name,
+                "repo_id": repo_id,
+                "commit_sha": commit_sha,
+            },
         )
 
-    def merge_global_variable(self, name: str, file_path: str, code: str,
-                              repo_id: str = "", commit_sha: str = ""):
+    def merge_global_variable(
+        self, name: str, file_path: str, code: str, repo_id: str = "", commit_sha: str = ""
+    ):
         self.run_write(
             """
             MERGE (gv:GLOBAL_VARIABLE {name: $name, file_path: $file_path, repo_id: $repo_id})
             ON CREATE SET gv.code = $code, gv.commit_sha = $commit_sha
             ON MATCH SET gv.code = $code, gv.commit_sha = $commit_sha
             """,
-            {"name": name, "file_path": file_path, "code": code,
-             "repo_id": repo_id, "commit_sha": commit_sha},
+            {
+                "name": name,
+                "file_path": file_path,
+                "code": code,
+                "repo_id": repo_id,
+                "commit_sha": commit_sha,
+            },
         )
 
     # -- Edge MERGE helpers (repo-scoped) ---------------------------------------
 
-    def merge_contains(self, module_name: str, module_file: str,
-                       target_name: str, target_file: str, target_label: str,
-                       repo_id: str = ""):
+    def merge_contains(
+        self,
+        module_name: str,
+        module_file: str,
+        target_name: str,
+        target_file: str,
+        target_label: str,
+        repo_id: str = "",
+    ):
         """CONTAINS: MODULE -> (CLASS | FUNCTION | GLOBAL_VARIABLE)"""
         cypher = f"""
         MATCH (m:MODULE {{name: $module_name, file_path: $module_file, repo_id: $repo_id}})
         MATCH (t:{target_label} {{name: $target_name, file_path: $target_file, repo_id: $repo_id}})
         MERGE (m)-[:CONTAINS]->(t)
         """
-        self.run_write(cypher, {
-            "module_name": module_name, "module_file": module_file,
-            "target_name": target_name, "target_file": target_file,
-            "repo_id": repo_id,
-        })
+        self.run_write(
+            cypher,
+            {
+                "module_name": module_name,
+                "module_file": module_file,
+                "target_name": target_name,
+                "target_file": target_file,
+                "repo_id": repo_id,
+            },
+        )
 
-    def merge_has_method(self, class_name: str, class_file: str,
-                         method_name: str, method_file: str, repo_id: str = ""):
+    def merge_has_method(
+        self,
+        class_name: str,
+        class_file: str,
+        method_name: str,
+        method_file: str,
+        repo_id: str = "",
+    ):
         """HAS_METHOD: CLASS -> METHOD"""
         self.run_write(
             """
             MATCH (c:CLASS {name: $class_name, file_path: $class_file, repo_id: $repo_id})
-            MATCH (m:METHOD {name: $method_name, class_name: $class_name, file_path: $method_file, repo_id: $repo_id})
+            MATCH (m:METHOD {name: $method_name, class_name: $class_name, file_path:
+            $method_file, repo_id: $repo_id})
             MERGE (c)-[:HAS_METHOD]->(m)
             """,
-            {"class_name": class_name, "class_file": class_file,
-             "method_name": method_name, "method_file": method_file,
-             "repo_id": repo_id},
+            {
+                "class_name": class_name,
+                "class_file": class_file,
+                "method_name": method_name,
+                "method_file": method_file,
+                "repo_id": repo_id,
+            },
         )
 
-    def merge_has_field(self, class_name: str, class_file: str,
-                        field_name: str, field_file: str, repo_id: str = ""):
+    def merge_has_field(
+        self, class_name: str, class_file: str, field_name: str, field_file: str, repo_id: str = ""
+    ):
         """HAS_FIELD: CLASS -> FIELD"""
         self.run_write(
             """
             MATCH (c:CLASS {name: $class_name, file_path: $class_file, repo_id: $repo_id})
-            MATCH (f:FIELD {name: $field_name, class_name: $class_name, file_path: $field_file, repo_id: $repo_id})
+            MATCH (f:FIELD {name: $field_name, class_name: $class_name, file_path: $field_file,
+            repo_id: $repo_id})
             MERGE (c)-[:HAS_FIELD]->(f)
             """,
-            {"class_name": class_name, "class_file": class_file,
-             "field_name": field_name, "field_file": field_file,
-             "repo_id": repo_id},
+            {
+                "class_name": class_name,
+                "class_file": class_file,
+                "field_name": field_name,
+                "field_file": field_file,
+                "repo_id": repo_id,
+            },
         )
 
-    def merge_inherits(self, child_name: str, child_file: str,
-                       parent_name: str, parent_file: str, repo_id: str = ""):
+    def merge_inherits(
+        self,
+        child_name: str,
+        child_file: str,
+        parent_name: str,
+        parent_file: str,
+        repo_id: str = "",
+    ):
         """INHERITS: CLASS -> CLASS (base class)"""
         self.run_write(
             """
@@ -277,27 +418,53 @@ class GraphDB:
             MATCH (parent:CLASS {name: $parent_name, file_path: $parent_file, repo_id: $repo_id})
             MERGE (child)-[:INHERITS]->(parent)
             """,
-            {"child_name": child_name, "child_file": child_file,
-             "parent_name": parent_name, "parent_file": parent_file,
-             "repo_id": repo_id},
+            {
+                "child_name": child_name,
+                "child_file": child_file,
+                "parent_name": parent_name,
+                "parent_file": parent_file,
+                "repo_id": repo_id,
+            },
         )
 
-    def merge_uses(self, source_name: str, source_label: str, source_file: str,
-                   target_name: str, target_label: str, target_file: str,
-                   source_class: Optional[str] = None, target_class: Optional[str] = None,
-                   source_association_type: Optional[str] = None,
-                   target_association_type: Optional[str] = None,
-                   repo_id: str = ""):
+    def merge_uses(
+        self,
+        source_name: str,
+        source_label: str,
+        source_file: str,
+        target_name: str,
+        target_label: str,
+        target_file: str,
+        source_class: Optional[str] = None,
+        target_class: Optional[str] = None,
+        source_association_type: Optional[str] = None,
+        target_association_type: Optional[str] = None,
+        repo_id: str = "",
+    ):
         """USES: (FUNCTION|METHOD) -> (GLOBAL_VARIABLE|FIELD)"""
         if source_label == "METHOD":
-            source_match = f"MATCH (src:{source_label} {{name: $source_name, class_name: $source_class, file_path: $source_file, repo_id: $repo_id}})"
+            source_match = (
+                f"MATCH (src:{source_label} "
+                f"{{name: $source_name, class_name: $source_class, "
+                f"file_path: $source_file, repo_id: $repo_id}})"
+            )
         else:
-            source_match = f"MATCH (src:{source_label} {{name: $source_name, file_path: $source_file, repo_id: $repo_id}})"
+            source_match = (
+                f"MATCH (src:{source_label} "
+                f"{{name: $source_name, file_path: $source_file, repo_id: $repo_id}})"
+            )
 
         if target_label == "FIELD":
-            target_match = f"MATCH (tgt:{target_label} {{name: $target_name, class_name: $target_class, file_path: $target_file, repo_id: $repo_id}})"
+            target_match = (
+                f"MATCH (tgt:{target_label} "
+                f"{{name: $target_name, class_name: $target_class, "
+                f"file_path: $target_file, repo_id: $repo_id}})"
+            )
         else:
-            target_match = f"MATCH (tgt:{target_label} {{name: $target_name, file_path: $target_file, repo_id: $repo_id}})"
+            target_match = (
+                f"MATCH (tgt:{target_label} "
+                f"{{name: $target_name, file_path: $target_file, repo_id: $repo_id}})"
+            )
 
         cypher = f"""
         {source_match}
@@ -306,13 +473,20 @@ class GraphDB:
         ON CREATE SET r.source_association_type = $sat, r.target_association_type = $tat
         ON MATCH SET r.source_association_type = $sat, r.target_association_type = $tat
         """
-        self.run_write(cypher, {
-            "source_name": source_name, "source_class": source_class,
-            "source_file": source_file, "target_name": target_name,
-            "target_class": target_class, "target_file": target_file,
-            "sat": source_association_type, "tat": target_association_type,
-            "repo_id": repo_id,
-        })
+        self.run_write(
+            cypher,
+            {
+                "source_name": source_name,
+                "source_class": source_class,
+                "source_file": source_file,
+                "target_name": target_name,
+                "target_class": target_class,
+                "target_file": target_file,
+                "sat": source_association_type,
+                "tat": target_association_type,
+                "repo_id": repo_id,
+            },
+        )
 
     # -- Utility ----------------------------------------------------------------
 
@@ -328,7 +502,7 @@ class GraphDB:
             )
             stats[label] = result[0]["cnt"] if result else 0
 
-        for rel in ["CONTAINS", "HAS_METHOD", "HAS_FIELD", "INHERITS", "USES"]:
+        for rel in ["CONTAINS", "HAS_METHOD", "HAS_FIELD", "INHERITS", "USES", "CALLS", "IMPORTS"]:
             if repo_id:
                 result = self.run_query(
                     f"MATCH (a{{repo_id: $repo_id}})-[r:{rel}]->() RETURN count(r) AS cnt",
