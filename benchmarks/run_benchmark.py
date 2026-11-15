@@ -7,12 +7,16 @@ Uses NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD. Only benchmark-owned repo IDs are cl
 import argparse
 import json
 import multiprocessing
-import resource
 import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Any
+
+try:
+    import resource
+except ImportError:
+    resource = None
 
 from benchmarks.synthetic_generator import generate
 from graph_n4j.graph_db import GraphDB
@@ -83,8 +87,16 @@ def worker(root: str, mode: str, output):
                 for key in ("file_path", "source_file", "target_file"):
                     if key in row and Path(row[key]).is_absolute():
                         row[key] = str(Path(row[key]).relative_to(root))
-            peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            rss_mb = peak / (1024 * 1024 if sys.platform == "darwin" else 1024)
+            if resource is not None:
+                peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                rss_mb = peak / (1024 * 1024 if sys.platform == "darwin" else 1024)
+            else:
+                try:
+                    import psutil
+
+                    rss_mb = psutil.Process().memory_info().rss / (1024 * 1024)
+                except Exception:
+                    rss_mb = 0.0
             output.put(
                 dict(
                     mode=mode,
