@@ -40,6 +40,13 @@ ENV/
 env.bak/
 venv.bak/
 
+# Caches and test artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+repos/
+
 # IDEs
 .vscode/
 .idea/
