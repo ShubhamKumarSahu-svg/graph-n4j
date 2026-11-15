@@ -1,5 +1,5 @@
 """
-graph-n4j — Bridge LLM agents with code repositories via Neo4j graph databases.
+graph-n4j - Bridge LLM agents with code repositories via Neo4j graph databases.
 
 Based on the CodexGraph NAACL 2025 paper:
 "CodexGraph: Bridging Large Language Models and Code Repositories via Code Graph Databases"
@@ -13,14 +13,13 @@ Quick Start:
     print(result.answer)
 """
 
-__version__ = "0.2.0"
-
+from graph_n4j._version import __version__
+from graph_n4j.cache import ContextTracker, QueryCache, SkeletonCache
 from graph_n4j.core import GraphN4J
 from graph_n4j.graph_db import GraphDB
 from graph_n4j.llm.groq_client import GroqClient
-from graph_n4j.schema import SCHEMA_DESCRIPTION
-from graph_n4j.cache import SkeletonCache, QueryCache, ContextTracker
 from graph_n4j.repo_manager import RepoManager, RepoMetadata
+from graph_n4j.schema import SCHEMA_DESCRIPTION
 
 __all__ = [
     "GraphN4J",

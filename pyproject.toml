@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-n4j"
-version = "0.2.0"
+version = "1.0.0"
 description = "Bridge LLM agents with code repositories via Neo4j graph databases. Based on the CodexGraph NAACL 2025 paper."
 readme = "README.md"
 license = "MIT"
@@ -33,6 +33,11 @@ classifiers = [
 
 dependencies = [
     "groq>=0.11.0",
+    "tree-sitter>=0.23.0",
+    "tree-sitter-python>=0.23.0",
+    "tree-sitter-cpp>=0.23.0",
+    "xxhash>=3.4.0",
+    "httpx>=0.27.0",
     "neo4j>=5.20.0",
     "python-dotenv>=1.0.0",
     "gitpython>=3.1.40",
@@ -74,3 +79,10 @@ select = ["E", "F", "I", "W"]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["diskcache"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
