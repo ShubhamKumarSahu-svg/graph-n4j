@@ -1,0 +1,18 @@
+==========================================================================================================
+                                 GRAPH-N4J ARCHITECTURAL BENCHMARK REPORT                                 
+==========================================================================================================
+Repository: pallets/click (Commit: 8abb77a8432e03ed14a95f972b44f905279415a7, Files: 17)
+----------------------------------------------------------------------------------------------------------
+Metric                              Legacy 2-Pass (AST)    Unified (Tree-sitter)        Speedup / Delta
+----------------------------------------------------------------------------------------------------------
+File Parse Time                                0.0527 s                 0.0594 s            0.89x ratio
+Resolution / Legacy + Ingestion                7.1289 s                 0.0217 s                       
+Neo4j Ingestion Time                     combined above                 0.4699 s                       
+Total Wall-Clock Time                          7.1816 s                 0.5539 s           12.97x ratio
+Peak Memory (RSS)                            90.1562 MB              124.4531 MB            0.72x ratio
+Bolt Network Transactions                  3596.0000 tx               28.0000 tx          128.43x ratio
+Node Parity                                         987                     1054       MATCH / SUPERSET
+Edge Parity                                        1779                     3343       MATCH / SUPERSET
+==========================================================================================================
+Legacy resolution interleaves writes; its ingestion split is unavailable.
+Transaction counts exclude schema setup, cleanup, and parity inspection.
