@@ -90,8 +90,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # ── index ─────────────────────────────────────────────
-    p_index = subparsers.add_parser("index", help="Index a local Python or C++ repository")
-    p_index.add_argument("--legacy-2pass", action="store_true")
+    p_index = subparsers.add_parser("index", help="Index a local Python, C++, or C repository")
     p_index.add_argument("repo_path", help="Path to the repository")
     p_index.add_argument("--repo-id", help="Override the repo identifier")
     p_index.add_argument("--clear", action="store_true", help="Clear existing data before indexing")
@@ -228,7 +227,6 @@ def _cmd_index(g, args):
         args.repo_path,
         repo_id=args.repo_id,
         clear_existing=args.clear,
-        legacy_2pass=args.legacy_2pass,
     )
 
     print(f"\n  ✓ Indexed: {meta.repo_id}")

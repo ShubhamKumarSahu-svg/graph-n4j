@@ -27,8 +27,6 @@ from dotenv import find_dotenv, load_dotenv
 from graph_n4j.agents.pipeline import CodexGraphPipeline, PipelineResult
 from graph_n4j.cache import QueryCache, SkeletonCache
 from graph_n4j.graph_db import GraphDB
-from graph_n4j.indexer.edge_completion import complete_edges
-from graph_n4j.indexer.shallow_index import shallow_index_repo
 from graph_n4j.llm.base import BaseLLMClient
 from graph_n4j.llm.groq_client import GroqClient
 from graph_n4j.repo_manager import RepoManager, RepoMetadata
@@ -164,13 +162,12 @@ class GraphN4J:
         repo_path: str,
         repo_id: Optional[str] = None,
         clear_existing: bool = False,
-        legacy_2pass: bool = False,
     ) -> RepoMetadata:
         """
-        Index a local Python repository into Neo4j.
+        Index a local repository (Python, C++, or C) into Neo4j.
 
         Args:
-            repo_path: Path to the Python repository root.
+            repo_path: Path to the repository root.
             repo_id: Optional override for the repo identifier.
             clear_existing: If True, clear any existing data for this repo first.
 
@@ -183,14 +180,13 @@ class GraphN4J:
         if clear_existing:
             self.db.clear_repo(meta.repo_id)
 
-        return self._run_indexing(meta, legacy_2pass)
+        return self._run_indexing(meta)
 
     def index_github(
         self,
         url: str,
         commit_sha: Optional[str] = None,
         clear_existing: bool = False,
-        legacy_2pass: bool = False,
         force_clone: bool = False,
     ) -> RepoMetadata:
         """
@@ -211,35 +207,15 @@ class GraphN4J:
         if clear_existing:
             self.db.clear_repo(meta.repo_id)
 
-        return self._run_indexing(meta, legacy_2pass)
+        return self._run_indexing(meta)
 
-    def _run_indexing(self, meta: RepoMetadata, legacy_2pass: bool = False) -> RepoMetadata:
-        """Run Phase 1 (shallow index) and Phase 2 (edge completion)."""
+    def _run_indexing(self, meta: RepoMetadata) -> RepoMetadata:
+        """Index the repository using the unified single-pass indexer."""
         t0 = time.time()
+        from graph_n4j.indexer.unified_indexer import UnifiedIndexer
 
-        if legacy_2pass:
-            # Phase 1: Shallow indexing
-            logger.info("Phase 1: Shallow indexing %s ...", meta.repo_id)
-            index_result = shallow_index_repo(
-                meta.local_path, self.repo_manager.get_python_files(meta)
-            )
-            logger.info("Phase 1 complete: %s", index_result.summary())
-
-            # Phase 2: Edge completion
-            logger.info("Phase 2: Edge completion ...")
-            complete_edges(
-                index_result,
-                self.db,
-                meta.local_path,
-                repo_id=meta.repo_id,
-                commit_sha=meta.commit_sha,
-            )
-
-        else:
-            from graph_n4j.indexer.unified_indexer import UnifiedIndexer
-
-            files = self.repo_manager.get_source_files(meta)
-            UnifiedIndexer(self.db).index(meta.local_path, files, meta.repo_id, meta.commit_sha)
+        files = self.repo_manager.get_source_files(meta)
+        UnifiedIndexer(self.db).index(meta.local_path, files, meta.repo_id, meta.commit_sha)
 
         meta.index_time = time.time() - t0
         logger.info(

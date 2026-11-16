@@ -57,7 +57,6 @@ graph-n4j stats --repo-id python-project
 Supported extensions: `.py`, `.cpp`, `.hpp`, `.h`, `.cc`, `.cxx`, `.hxx`.
 The default filter excludes tests, vendored code, large files, and build outputs.
 `RepoManager.get_source_files()` accepts `FilterConfig` to customize filtering.
-Use `index --legacy-2pass` for the retained Python AST implementation.
 
 ## Python API
 
@@ -154,14 +153,9 @@ is verified separately because the legacy implementation supports Python only.
 
 ```bash
 pip install '.[dev]'
-pytest tests/
 ruff check .
 mypy graph_n4j
 ```
-
-To include Neo4j integration tests, set `GRAPH_N4J_TEST_URI` to a disposable server
-with username `neo4j` and password `graphn4jtest`. Tests clean their own repo IDs.
-Provider tests use mocked HTTP transport and require no paid API calls.
 
 `scripts/bump_version.py patch|minor|major` synchronizes package metadata and
 `_version.py`, regenerates CHANGELOG.md from git history, and stages those files.
