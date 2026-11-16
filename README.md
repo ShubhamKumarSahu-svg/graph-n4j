@@ -44,14 +44,14 @@ Standard retrieval-augmented generation splits code into arbitrary 500-token chu
 
 <table>
 <tr>
-<td width="20%" align="center"><b>① Source Files</b></td>
-<td width="20%" align="center"><b>② Tree-sitter Parser</b></td>
-<td width="20%" align="center"><b>③ Symbol Linker</b></td>
-<td width="20%" align="center"><b>④ Vectorised Batch</b></td>
-<td width="20%" align="center"><b>⑤ Neo4j Graph</b></td>
+<td width="20%" align="center"><b>[1] Source Code</b></td>
+<td width="20%" align="center"><b>[2] Tree-sitter AST</b></td>
+<td width="20%" align="center"><b>[3] Symbol Linker</b></td>
+<td width="20%" align="center"><b>[4] Vectorized Batch</b></td>
+<td width="20%" align="center"><b>[5] Neo4j CPG</b></td>
 </tr>
 <tr>
-<td align="center"><code>.py</code> <code>.cpp</code> <code>.c</code><br>Local dirs & GitHub</td>
+<td align="center"><code>.py</code> <code>.cpp</code> <code>.c</code><br>Local & GitHub</td>
 <td align="center">Concrete syntax trees<br>Error-tolerant grammars</td>
 <td align="center">In-memory symbol table<br>Cross-file call resolution</td>
 <td align="center"><code>UNWIND $batch</code><br>28 ACID transactions</td>
@@ -232,7 +232,9 @@ with GraphN4J.from_env(provider="groq") as g:
 
 ---
 
-## Theoretical Foundations
+## Citation & Academic Foundations
+
+If you use `graph-n4j` in your research or production systems, please cite the framework and foundational literature:
 
 <table>
 <tr>
@@ -258,33 +260,43 @@ with GraphN4J.from_env(provider="groq") as g:
 </table>
 
 <details>
-<summary><b>BibTeX</b></summary>
+<summary><b>BibTeX Citations</b></summary>
 
 ```bibtex
+@software{graphn4j2025,
+  title        = {graph-n4j: High-Performance Code Property Graphs in Neo4j for LLM Agents},
+  author       = {Sahu, Shubham Kumar},
+  year         = {2025},
+  url          = {https://github.com/ShubhamKumarSahu-svg/graph-n4j},
+  version      = {1.0.0}
+}
+
 @inproceedings{codexgraph2025,
-  title     = {CodexGraph: Bridging Large Language Models and Code Repositories
-               via Code Graph Databases},
-  booktitle = {NAACL 2025},
-  year      = {2025}
+  title        = {CodexGraph: Bridging Large Language Models and Code Repositories via Code Graph Databases},
+  booktitle    = {Proceedings of the 2025 Conference of the North American Chapter of the Association for Computational Linguistics (NAACL)},
+  year         = {2025}
 }
+
 @inproceedings{yamaguchi2014cpg,
-  title     = {Modeling and Discovering Vulnerabilities with Code Property Graphs},
-  author    = {Yamaguchi, Fabian and Golde, Nico and Arp, Daniel and Rieck, Konrad},
-  booktitle = {IEEE S\&P 2014},
-  pages     = {590--604},
-  year      = {2014}
+  author       = {Yamaguchi, Fabian and Golde, Nico and Arp, Daniel and Rieck, Konrad},
+  title        = {Modeling and Discovering Vulnerabilities with Code Property Graphs},
+  booktitle    = {2014 IEEE Symposium on Security and Privacy (S&P)},
+  pages        = {590--604},
+  year         = {2014}
 }
+
 @article{edge2024graphrag,
-  title   = {From Local to Global: A Graph RAG Approach to Query-Focused Summarization},
-  author  = {Edge, Darren and Trinh, Ha and others},
-  journal = {arXiv:2404.16130},
-  year    = {2024}
+  author       = {Edge, Darren and Trinh, Ha and Cen, Newman and Anderson, Robert and Larson, Eric and others},
+  title        = {From Local to Global: A Graph RAG Approach to Query-Focused Summarization},
+  journal      = {arXiv preprint arXiv:2404.16130},
+  year         = {2024}
 }
+
 @inproceedings{yao2023react,
-  title     = {ReAct: Synergizing Reasoning and Acting in Language Models},
-  author    = {Yao, Shunyu and Zhao, Jeffrey and others},
-  booktitle = {ICLR 2023},
-  year      = {2023}
+  author       = {Yao, Shunyu and Zhao, Jeffrey and Yu, Dian and Du, Nan and Shafran, Izhak and Narasimhan, Karthik},
+  title        = {ReAct: Synergizing Reasoning and Acting in Language Models},
+  booktitle    = {International Conference on Learning Representations (ICLR)},
+  year         = {2023}
 }
 ```
 
