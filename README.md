@@ -149,14 +149,10 @@ python -m benchmarks.run_benchmark --repo ./python-project --output benchmarks/p
 The runner clears only its own `graph-n4j-benchmark-*` repository IDs. C++ indexing
 is verified separately because the legacy implementation supports Python only.
 
-## Development and releases
+## Development and quality checks
 
 ```bash
 pip install '.[dev]'
 ruff check .
 mypy graph_n4j
 ```
-
-`scripts/bump_version.py patch|minor|major` synchronizes package metadata and
-`_version.py`, regenerates CHANGELOG.md from git history, and stages those files.
-Do not edit the generated changelog by hand. Release commits use Conventional Commits.

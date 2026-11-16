@@ -47,10 +47,11 @@ venv.bak/
 .cache/
 repos/
 
-# Presentation materials, benchmarks, tests (local only, do not commit)
+# Presentation materials, benchmarks, tests, scripts (local only, do not commit)
 presentation/
 benchmarks/
 tests/
+scripts/
 *.pptx
 
 # IDEs
