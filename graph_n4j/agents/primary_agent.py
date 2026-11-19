@@ -1,12 +1,4 @@
-"""
-primary_agent.py - The Primary Agent in CodexGraph's dual-agent architecture.
-
-Per Section 3.2 of the paper, the Primary Agent:
-  - Receives the user's code question + accumulated context from prior rounds
-  - Produces: (a) natural-language analysis, (b) one or more NL queries describing
-    what to retrieve from the graph, (c) a decision on whether enough context exists
-  - Supports both 'single_query' and 'multiple_queries' modes
-"""
+"""Decide which graph facts to retrieve and when to answer the question."""
 
 import logging
 
@@ -15,9 +7,7 @@ from graph_n4j.llm.base import BaseLLMClient
 logger = logging.getLogger(__name__)
 
 
-# ═══════════════════════════════════════════
 # System prompts
-# ═══════════════════════════════════════════
 
 PRIMARY_SYSTEM_PROMPT = """You are the Primary Agent in the CodexGraph system. Your job is to help \
 answer questions about a Python code repository by deciding what information to \
@@ -100,9 +90,7 @@ def get_system_prompt(
     return prompt
 
 
-# ═══════════════════════════════════════════
 # Primary Agent class
-# ═══════════════════════════════════════════
 
 
 class PrimaryAgent:
@@ -142,7 +130,7 @@ class PrimaryAgent:
         """
         messages = [{"role": "system", "content": self.system_prompt}]
 
-        # Build the user message with accumulated context
+        # Pair each earlier query with its result so the next round can cite its evidence.
         user_content = f"## User Question\n{user_question}\n"
 
         if context_history:
@@ -157,7 +145,7 @@ class PrimaryAgent:
 
         messages.append({"role": "user", "content": user_content})
 
-        # Call Groq with JSON mode (with fallback for json_validate_failed)
+        # Some providers reject structured output. Retry in plain text and recover the object.
         try:
             response = self.client.chat_json(
                 messages=messages,
@@ -196,7 +184,7 @@ class PrimaryAgent:
                         "final_answer": raw,
                     }
 
-        # Validate response structure
+        # Fill optional fields before the pipeline reads the response.
         if "analysis" not in response:
             response["analysis"] = ""
         if "queries" not in response:

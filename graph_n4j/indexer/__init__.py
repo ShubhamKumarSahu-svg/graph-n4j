@@ -1,4 +1,4 @@
-"""graph_n4j.indexer - Unified single-pass AST indexing and topological linking."""
+"""Parse source files, resolve references and persist the resulting graph in Neo4j."""
 
 from graph_n4j.indexer.linker import TopologicalLinker
 from graph_n4j.indexer.symbol_table import SymbolTable

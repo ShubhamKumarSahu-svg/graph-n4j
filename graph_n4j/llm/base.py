@@ -66,6 +66,7 @@ class BaseLLMClient(ABC):
         model_override: str | None = None,
     ) -> dict[str, Any]:
         raw = self.chat(messages, temperature, max_tokens, True, model_override)
+        # Some providers wrap otherwise valid JSON in a Markdown code block.
         raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
         result = json.loads(raw)
         if not isinstance(result, dict):

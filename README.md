@@ -1,153 +1,21 @@
-<div align="center">
-
 # graph-n4j
 
-**Bridge LLMs and Code Repositories via Neo4j Code Property Graphs**
+Index Python, C and C++ repositories in Neo4j, then ask questions about their symbols, source and relationships. The query pipeline follows the two-agent approach described in *CodexGraph: Bridging Large Language Models and Code Repositories via Code Graph Databases*.
 
-[![PyPI](https://img.shields.io/pypi/v/graph-n4j?color=blue&label=PyPI)](https://pypi.org/project/graph-n4j/)
-[![Python](https://img.shields.io/pypi/pyversions/graph-n4j)](https://pypi.org/project/graph-n4j/)
-[![Neo4j](https://img.shields.io/badge/Neo4j-5%2B-008CC1)](https://neo4j.com/)
-[![Tree-sitter](https://img.shields.io/badge/Tree--sitter-Polyglot%20AST-brightgreen)](https://tree-sitter.github.io/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+## How indexing works
 
-<br>
+The indexer selects source files, hashes their contents and parses changed files with Tree-sitter. It stores the extracted symbols and reference sites on the module node so a later run can reuse them. On Windows and Unix, repository-relative graph paths use forward slashes.
 
-`graph-n4j` compiles polyglot codebases into high-fidelity **Code Property Graphs** in Neo4j,<br>
-then lets LLM agents query them with deterministic Cypher — no vector chunking, no hallucinations.
+The linker looks up imports, owners and names across the selected files. It emits a call edge when it can resolve a reference to one symbol identity. Dynamic dispatch and ambiguous names can leave gaps. The writer groups records by label and relationship type and sends batches to Neo4j. Reindexing also refreshes dependents of changed files.
 
-Built on the **CodexGraph (NAACL 2025)** architecture · Unified Tree-sitter AST parsing · Multi-provider LLM support
+| Graph records | Types |
+| --- | --- |
+| Symbols | MODULE, CLASS, FUNCTION, METHOD, FIELD, GLOBAL_VARIABLE |
+| Relationships | CONTAINS, HAS_METHOD, HAS_FIELD, INHERITS, USES, CALLS, IMPORTS |
 
-</div>
+## Release comparison
 
----
-
-## Why Not Vector RAG?
-
-Standard retrieval-augmented generation splits code into arbitrary 500-token chunks and indexes dense vectors. This fails on codebases because:
-
-| Failure Mode | What Goes Wrong |
-|:---|:---|
-| **Chunk blindness** | Token-boundary splits sever functions, closures, and parameter lists mid-statement. |
-| **Broken call graphs** | Cosine similarity between caller `A` and callee `B` is often near zero — vector search never links them. |
-| **Lost inheritance** | Base classes, interfaces, and polymorphic overrides are invisible to embedding distance. |
-| **Token explosion** | Dumping top-K files into the prompt wastes budget, slows TTFT, and triggers hallucinations. |
-
-`graph-n4j` replaces this with **deterministic structural graphs**: the LLM writes Cypher queries against a property graph of AST nodes and edges, retrieving exact call chains, inheritance trees, and scoped symbols.
-
----
-
-## Architecture
-
-<p align="center">
-  <img src="images/architecture.png" alt="graph-n4j System Architecture" width="100%">
-</p>
-
-<table>
-<tr>
-<td width="20%" align="center"><b>[1] Source Code</b></td>
-<td width="20%" align="center"><b>[2] Tree-sitter AST</b></td>
-<td width="20%" align="center"><b>[3] Symbol Linker</b></td>
-<td width="20%" align="center"><b>[4] Vectorized Batch</b></td>
-<td width="20%" align="center"><b>[5] Neo4j CPG</b></td>
-</tr>
-<tr>
-<td align="center"><code>.py</code> <code>.cpp</code> <code>.c</code><br>Local & GitHub</td>
-<td align="center">Concrete syntax trees<br>Error-tolerant grammars</td>
-<td align="center">In-memory symbol table<br>Cross-file call resolution</td>
-<td align="center"><code>UNWIND $batch</code><br>28 ACID transactions</td>
-<td align="center">6 node labels · 7 edges<br>Multi-repo isolation</td>
-</tr>
-</table>
-
-A **Primary Agent** (reasoner) collaborates with a **Cypher Tool Agent** (executor) in a self-correcting retrieval loop — queries that fail schema validation are automatically repaired and re-executed.
-
----
-
-## Graph Schema
-
-<p align="center">
-  <img src="images/graph_schema.png" alt="Code Property Graph Schema" width="100%">
-</p>
-
-<table>
-<tr>
-<td width="50%">
-
-### Node Labels
-| Label | Represents |
-|:---|:---|
-| `MODULE` | Source file container |
-| `CLASS` | Class, struct, or interface |
-| `FUNCTION` | Module-level procedure |
-| `METHOD` | Class-bound member function |
-| `FIELD` | Class attribute or member |
-| `GLOBAL_VARIABLE` | Module-level constant |
-
-</td>
-<td width="50%">
-
-### Edge Relationships
-| Edge | Connects |
-|:---|:---|
-| `CONTAINS` | Module → child AST node |
-| `HAS_METHOD` | Class → member method |
-| `HAS_FIELD` | Class → member field |
-| `INHERITS` | Subclass → base class |
-| `CALLS` | Caller → callee |
-| `USES` | Function → field / global |
-| `IMPORTS` | Module → target module |
-
-</td>
-</tr>
-</table>
-
-Every node and edge carries a `repo_id` property — hundreds of repositories coexist safely in one Neo4j instance.
-
----
-
-## Benchmarks
-
-<p align="center">
-  <img src="images/benchmark_hero.png" alt="Key Benchmark Metrics" width="100%">
-</p>
-
-Measured on Pallets Click (40 Python files) and synthetic baselines against Neo4j 5 Community:
-
-<table>
-<tr>
-<td width="50%">
-<p align="center"><img src="images/1_speedup_comparison.png" width="100%"></p>
-<p align="center"><b>12.97× Ingestion Speedup</b></p>
-<p>The legacy two-pass indexer opened a network socket for every AST node — 7.18 s on Click. The unified engine parses and links the entire repo in RAM, then commits in vectorised batches: <b>0.55 s</b> (92.3 % latency reduction).</p>
-</td>
-<td width="50%">
-<p align="center"><img src="images/2_transaction_reduction.png" width="100%"></p>
-<p align="center"><b>99.2 % Transaction Reduction</b></p>
-<p>Individual <code>MERGE</code> calls are replaced by <code>UNWIND $batch AS row</code> parameter arrays. ACID transactions dropped from <b>3 596 → 28</b>, eliminating Bolt round-trips, WAL bloat, and lock contention.</p>
-</td>
-</tr>
-<tr>
-<td width="50%">
-<p align="center"><img src="images/3_graph_density_parity.png" width="100%"></p>
-<p align="center"><b>100 % Entity Parity + 363 Calls</b></p>
-<p>The single-pass compiler maintains all symbols in memory, resolving cross-file references that naive parsers drop. Result: <b>zero schema loss</b> and 363 additional static <code>CALLS</code> edges discovered.</p>
-</td>
-<td width="50%">
-<p align="center"><img src="images/4_multilanguage_support.png" width="100%"></p>
-<p align="center"><b>Polyglot AST Support</b></p>
-<p>Tested on real GitHub repos — <b>Python</b> (<code>bottlepy/bottle</code>: 69 classes, 295 methods), <b>C++</b> (<code>jarro2783/cxxopts</code>: 37 classes, 149 methods), and <b>C</b> (<code>rxi/log.c</code>: 7 functions).</p>
-</td>
-</tr>
-<tr>
-<td colspan="2">
-<p align="center"><img src="images/5_token_efficiency.png" width="65%"></p>
-<p align="center"><b>Up to 76 % Agent Token Reduction (B1–B4)</b></p>
-<p align="center">CodexGraph optimisations — compact JSON, schema pruning, targeted subgraph walks, dynamic round pruning — cut prompt tokens from ~12 500 to <b>~2 980</b>, reducing LLM API costs by over 4×.</p>
-</td>
-</tr>
-</table>
-
----
+The [benchmark report](https://github.com/ShubhamKumarSahu-svg/graph-n4j/blob/main/presentation/report.md) compares the published Python AST indexer in 0.1.8 with 1.1.0 on pinned sources from Click, Black, cJSON, curl, tinyxml2 and fmt. It includes the exact inputs, indexing and repeat-run times, database writes and graph counts.
 
 ## Quickstart
 
@@ -187,10 +55,10 @@ graph-n4j ask "How does routing work?" --repo-id bottlepy/bottle --provider groq
 ## CLI Reference
 
 ```bash
-graph-n4j index ./project --repo-id org/project --stats     # local repo
-graph-n4j index-github jarro2783/cxxopts --stats             # GitHub repo
-graph-n4j ask "Explain Option parsing" --provider openai     # natural-language Q&A
-graph-n4j cypher "MATCH (c:CLASS) RETURN c.name LIMIT 10"    # raw Cypher
+graph-n4j index ./project --repo-id org/project --stats
+graph-n4j index-github jarro2783/cxxopts --stats
+graph-n4j ask "Explain Option parsing" --provider openai
+graph-n4j cypher "MATCH (c:CLASS) RETURN c.name LIMIT 10"
 graph-n4j stats --repo-id bottlepy/bottle                    # graph statistics
 graph-n4j repos                                              # list indexed repos
 ```
@@ -208,114 +76,14 @@ with GraphN4J.from_env(provider="groq") as g:
 
 ---
 
-## LLM Providers
+## Model providers
 
-| Provider | Flag | Key Variable | Recommended Model | Profile |
-|:---|:---|:---|:---|:---|
-| **Groq** | `--provider groq` | `GROQ_API_KEY` | `qwen/qwen3.8-27b` | Ultra-fast (< 250 ms) |
-| **OpenAI** | `--provider openai` | `OPENAI_API_KEY` | `o3-mini` / `gpt-4o` | Deep reasoning |
-| **Anthropic** | `--provider anthropic` | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet` | Large context |
-| **Gemini** | `--provider gemini` | `GEMINI_API_KEY` | `gemini-2.0-flash` | High throughput |
-| **Ollama** | `--provider ollama` | *(none — local)* | `qwen2.5-coder` | 100 % offline |
+Use the provider flag on the ask command. Groq, OpenAI, Anthropic and Gemini read their respective API keys from the environment. Ollama connects to a local server and accepts an OLLAMA_HOST override. Indexing requires a running Neo4j instance. The client opens a model connection on the first question.
 
----
+## Coding applications
 
-## AI Coding Apps
-
-| App | Purpose |
-|:---|:---|
-| **CodeChat** | Conversational repo assistant — navigates `CALLS` and `INHERITS` edges with verified line numbers. |
-| **CodeCommenter** | Generates docstrings by inspecting caller expectations and callee side-effects. |
-| **CodeDebugger** | Traces stack traces through `CALLS`/`USES` edges to isolate root causes. |
-| **CodeGenerator** | Synthesises classes and endpoints matching existing design patterns. |
-| **CodeUnitTester** | Generates unit tests from AST parameter types and exception branches. |
-
----
-
-## Citation & Academic Foundations
-
-If you use `graph-n4j` in your research or production systems, please cite the framework and foundational literature:
-
-<table>
-<tr>
-<td width="5%" align="center">📄</td>
-<td><b><a href="https://aclanthology.org/">CodexGraph</a></b> — NAACL 2025<br><sub>Bridging Large Language Models and Code Repositories via Code Graph Databases. Establishes the paradigm of LLM agents generating Cypher queries against formal code graph databases for deterministic multi-hop retrieval.</sub></td>
-</tr>
-<tr>
-<td align="center">📄</td>
-<td><b><a href="https://ieeexplore.ieee.org/document/6956589">Code Property Graphs</a></b> — Yamaguchi et al., IEEE S&P 2014<br><sub>Modeling and Discovering Vulnerabilities with Code Property Graphs. Introduced unifying ASTs, Control Flow Graphs, and Program Dependence Graphs into a single queryable property graph.</sub></td>
-</tr>
-<tr>
-<td align="center">📄</td>
-<td><b><a href="https://arxiv.org/abs/2404.16130">Graph RAG</a></b> — Edge et al., Microsoft Research 2024<br><sub>From Local to Global: A Graph RAG Approach to Query-Focused Summarization. Demonstrated that graph-structured retrieval substantially outperforms flat vector search for connected, holistic queries.</sub></td>
-</tr>
-<tr>
-<td align="center">📄</td>
-<td><b><a href="https://openreview.net/forum?id=WE_vluYUL-X">ReAct</a></b> — Yao et al., ICLR 2023<br><sub>Synergizing Reasoning and Acting in Language Models. Formalised the Thought → Action → Observation loop powering graph-n4j's self-correcting dual-agent retrieval.</sub></td>
-</tr>
-<tr>
-<td align="center">📄</td>
-<td><b><a href="https://tree-sitter.github.io/">Tree-sitter</a></b> — GitHub / Bruni et al.<br><sub>An Incremental Parsing System for Programming Tools. Provides the error-tolerant, polyglot Concrete Syntax Tree engine for Python, C++, and C AST extraction.</sub></td>
-</tr>
-</table>
-
-<details>
-<summary><b>BibTeX Citations</b></summary>
-
-```bibtex
-@software{graphn4j2025,
-  title        = {graph-n4j: High-Performance Code Property Graphs in Neo4j for LLM Agents},
-  author       = {Sahu, Shubham Kumar},
-  year         = {2025},
-  url          = {https://github.com/ShubhamKumarSahu-svg/graph-n4j},
-  version      = {1.0.0}
-}
-
-@inproceedings{codexgraph2025,
-  title        = {CodexGraph: Bridging Large Language Models and Code Repositories via Code Graph Databases},
-  booktitle    = {Proceedings of the 2025 Conference of the North American Chapter of the Association for Computational Linguistics (NAACL)},
-  year         = {2025}
-}
-
-@inproceedings{yamaguchi2014cpg,
-  author       = {Yamaguchi, Fabian and Golde, Nico and Arp, Daniel and Rieck, Konrad},
-  title        = {Modeling and Discovering Vulnerabilities with Code Property Graphs},
-  booktitle    = {2014 IEEE Symposium on Security and Privacy (S&P)},
-  pages        = {590--604},
-  year         = {2014}
-}
-
-@article{edge2024graphrag,
-  author       = {Edge, Darren and Trinh, Ha and Cen, Newman and Anderson, Robert and Larson, Eric and others},
-  title        = {From Local to Global: A Graph RAG Approach to Query-Focused Summarization},
-  journal      = {arXiv preprint arXiv:2404.16130},
-  year         = {2024}
-}
-
-@inproceedings{yao2023react,
-  author       = {Yao, Shunyu and Zhao, Jeffrey and Yu, Dian and Du, Nan and Shafran, Izhak and Narasimhan, Karthik},
-  title        = {ReAct: Synergizing Reasoning and Acting in Language Models},
-  booktitle    = {International Conference on Learning Representations (ICLR)},
-  year         = {2023}
-}
-```
-
-</details>
-
----
+CodeChat answers questions, CodeCommenter drafts documentation, CodeDebugger proposes fixes, CodeGenerator drafts features and CodeUnitTester drafts tests. Each passes a task-specific instruction to the retrieval pipeline. Review the returned answer or code before applying it.
 
 ## Development
 
-```bash
-pip install '.[dev]'
-ruff check .
-mypy graph_n4j
-```
-
----
-
-<div align="center">
-
-**MIT License** · [PyPI](https://pypi.org/project/graph-n4j/) · [GitHub](https://github.com/ShubhamKumarSahu-svg/graph-n4j)
-
-</div>
+Install the project with its dev extras and run pytest. Set GRAPH_N4J_TEST_URI to a disposable Neo4j service for the database integration tests. The benchmark runner and reproduction instructions are in the [benchmarks directory](https://github.com/ShubhamKumarSahu-svg/graph-n4j/tree/main/benchmarks).

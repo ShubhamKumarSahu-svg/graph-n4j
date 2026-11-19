@@ -1,12 +1,4 @@
-"""
-translation_agent.py - The Translation Agent in CodexGraph's dual-agent architecture.
-
-Per Section 3.2 ("write then translate" strategy), the Translation Agent:
-  - Receives the full graph schema + a natural language query from the Primary Agent
-  - Outputs a syntactically valid Cypher query
-  - Uses temperature=0.0 for deterministic translations
-  - The system prompt embeds the full schema so the model translates reliably
-"""
+"""Translate a retrieval question into a Cypher query using the graph schema."""
 
 import logging
 
@@ -16,9 +8,7 @@ from graph_n4j.schema import SCHEMA_DESCRIPTION
 logger = logging.getLogger(__name__)
 
 
-# ═══════════════════════════════════════════
 # System prompt
-# ═══════════════════════════════════════════
 
 TRANSLATION_SYSTEM_PROMPT = f"""You are the Translation Agent in the CodexGraph system. Your
 ONLY job
@@ -104,6 +94,7 @@ class TranslationAgent:
             {"role": "user", "content": nl_query},
         ]
 
+        # The translation model can be selected independently from the answering model.
         cypher = self.client.chat_cypher(
             messages=messages,
             temperature=0.0,

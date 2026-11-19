@@ -47,13 +47,9 @@ venv.bak/
 .cache/
 repos/
 
-# Presentation materials, benchmarks, tests, scripts, changelog (local only, do not commit)
-presentation/
-benchmarks/
-tests/
+# Local release tools
 scripts/
 CHANGELOG.md
-*.pptx
 
 # IDEs
 .vscode/

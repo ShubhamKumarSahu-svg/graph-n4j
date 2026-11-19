@@ -1,10 +1,4 @@
-"""
-code_commenter.py - Application 5: Docstring and comment generation.
-
-Takes a file path or function/class name, retrieves its structural context from
-the graph (relationships, callers, inheritance), and generates contextually
-rich docstrings and inline comments.
-"""
+"""Retrieve a symbol and its neighbors to draft comments and docstrings."""
 
 import logging
 
@@ -75,6 +69,7 @@ class CodeCommenter:
         Returns:
             PipelineResult with documented code and context summary.
         """
+        # The prompt names the target twice so retrieval and documentation refer to the same symbol.
         question = (
             f"Generate comprehensive docstrings and comments for: {target}\n"
             f"First retrieve the implementation of '{target}', its relationships "

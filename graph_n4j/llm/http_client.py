@@ -34,6 +34,7 @@ class HTTPClient(BaseLLMClient):
     ) -> dict[str, Any]:
         if self.key_env and not self.api_key:
             raise ValueError(f"Set {self.key_env} to use this provider")
+        # Back off on rate limits and temporary server errors. Surface other failures immediately.
         for attempt in range(3):
             response = self.http.post(self.base_url + path, json=payload, headers=headers)
             if response.status_code not in (429, 500, 502, 503, 504) or attempt == 2:

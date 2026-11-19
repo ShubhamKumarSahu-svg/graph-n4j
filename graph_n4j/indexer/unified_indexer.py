@@ -1,4 +1,4 @@
-"""Parse changed files once, link in RAM, then persist using vectorized writes."""
+"""Reuse cached parses, link the repository and write affected graph records."""
 
 import hashlib
 import time
@@ -40,11 +40,12 @@ class UnifiedIndexer:
             "m.index_version AS index_version",
             {"repo_id": repo_id},
         )
+        # A parse is reusable only when the bytes and the extractor version both match.
         cached = {r["file_path"]: r for r in previous}
         parsed: list[ParsedFile] = []
         changed = set()
         for file_path in files:
-            path = str(Path(file_path).relative_to(root))
+            path = Path(file_path).relative_to(root).as_posix()
             source = Path(file_path).read_bytes()
             digest = hashlib.sha256(source).hexdigest()
             old = cached.get(path, {})

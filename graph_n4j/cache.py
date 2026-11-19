@@ -1,13 +1,4 @@
-"""
-cache.py -- Multi-layer caching for CodexGraph token efficiency.
-
-Implements:
-  B1. Graph structure skeleton cache (in-memory, per repo_id+commit_sha)
-  B2. Query result cache (Cypher -> result) + NL->Cypher translation cache
-  B7. Multi-repo aware keying
-
-All caches are keyed by (repo_id, commit_sha) so switching repos doesn't pollute.
-"""
+"""Cache graph summaries, translations and query results by repository and revision."""
 
 import hashlib
 import json
@@ -25,9 +16,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache")
 
 
-# ===========================================================================
-# B1 - Graph structure skeleton cache
-# ===========================================================================
+# Graph structure skeleton cache
 
 
 @dataclass
@@ -118,9 +107,7 @@ class SkeletonCache:
         return skeleton
 
 
-# ===========================================================================
-# B2 - Query result cache + NL->Cypher translation cache
-# ===========================================================================
+# Query result cache + NL->Cypher translation cache
 
 
 class QueryCache:
@@ -254,9 +241,7 @@ class QueryCache:
         self.translation_hits = self.translation_misses = 0
 
 
-# ===========================================================================
-# B3 - Context pruning: track seen nodes
-# ===========================================================================
+# Context pruning: track seen nodes
 
 
 class ContextTracker:
@@ -335,9 +320,7 @@ class ContextTracker:
         self._seen_code.clear()
 
 
-# ===========================================================================
-# B4 - Result truncation / relevance filtering
-# ===========================================================================
+# Result truncation / relevance filtering
 
 
 def truncate_results(
@@ -360,9 +343,7 @@ def truncate_results(
     return records[:max_rows], note
 
 
-# ===========================================================================
-# B6 - Early-stopping heuristic
-# ===========================================================================
+# Early-stopping heuristic
 
 
 def should_early_stop(
@@ -406,6 +387,7 @@ class IncrementalCache:
                 symbol.source.byte_end,
             )
 
+        # Many references share a caller. Store its position once instead of copying its body.
         indexes = {identity(symbol): index for index, symbol in enumerate(parsed.symbols)}
         return json.dumps(
             {

@@ -14,6 +14,7 @@ class AnthropicClient(HTTPClient):
         json_mode: bool = False,
         model_override: str | None = None,
     ) -> str:
+        # The Messages API takes system instructions outside the conversation history.
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
         if json_mode:
             system += "\nReturn only a valid JSON object."

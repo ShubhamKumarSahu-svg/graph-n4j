@@ -1,29 +1,14 @@
-"""
-schema.py - Node/Edge type definitions and Cypher constraints for CodexGraph.
-
-Defines the graph database schema per Section 3.1 / Appendix A.1 of the paper:
-  - 6 node types: MODULE, CLASS, FUNCTION, METHOD, FIELD, GLOBAL_VARIABLE
-  - 5 edge types: CONTAINS, HAS_METHOD, HAS_FIELD, INHERITS, USES
-
-NOTE on storage efficiency (per the paper):
-  The paper recommends storing `code` as an indexed pointer/reference to the source
-  fragment to avoid duplicating large text in the DB. For this research prototype,
-  we store code snippets directly as node properties in Neo4j for simplicity.
-  In a production system, you'd store (file_path, start_line, end_line) and read
-  the source on demand.
-"""
+"""Define the symbol and relationship types, Cypher constraints and indexes used by Neo4j."""
 
 from dataclasses import dataclass, field
 from typing import Optional
 
-# ═══════════════════════════════════════════
 # Node type definitions
-# ═══════════════════════════════════════════
 
 
 @dataclass
 class ModuleNode:
-    """A Python module (file)."""
+    """A source file and its repository-relative identity."""
 
     name: str  # dotted module path, e.g. "pkg.subpkg.module"
     file_path: str  # absolute or repo-relative file path
@@ -79,9 +64,7 @@ class GlobalVariableNode:
     code: str  # the assignment statement(s)
 
 
-# ═══════════════════════════════════════════
 # Edge type definitions
-# ═══════════════════════════════════════════
 
 
 @dataclass
@@ -140,9 +123,7 @@ class UsesEdge:
     target_association_type: Optional[str] = None  # e.g. "attribute", "global"
 
 
-# ═══════════════════════════════════════════
 # Schema description for the Translation Agent
-# ═══════════════════════════════════════════
 
 SCHEMA_DESCRIPTION = """
 ## Neo4j Graph Database Schema -- CodexGraph
@@ -231,9 +212,7 @@ All nodes share these common properties: `repo_id`, `commit_sha`
 """.strip()
 
 
-# ═══════════════════════════════════════════
 # Cypher constraint & index creation statements
-# ═══════════════════════════════════════════
 
 NODE_LABELS = ("MODULE", "CLASS", "FUNCTION", "METHOD", "FIELD", "GLOBAL_VARIABLE")
 EDGE_TYPES = ("CONTAINS", "HAS_METHOD", "HAS_FIELD", "INHERITS", "USES", "CALLS", "IMPORTS")

@@ -1,0 +1,592 @@
+{
+  "python": "3.12.12",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "neo4j": "5.26.33",
+  "baseline_sha256": "6f032e39640785e61f8e78d73f901be8ff97ca44c09cf8add9b0096287da4cd0",
+  "runs": [
+    {
+      "repo": "pallets/click",
+      "sha": "934813e4d421071a1b3db3973c02fe2721359a6e",
+      "tag": "8.1.8",
+      "paths": [
+        "src/click/__init__.py",
+        "src/click/_compat.py",
+        "src/click/_termui_impl.py",
+        "src/click/_textwrap.py",
+        "src/click/_winconsole.py",
+        "src/click/core.py",
+        "src/click/decorators.py",
+        "src/click/exceptions.py",
+        "src/click/formatting.py",
+        "src/click/globals.py",
+        "src/click/parser.py",
+        "src/click/shell_completion.py",
+        "src/click/termui.py",
+        "src/click/testing.py",
+        "src/click/types.py",
+        "src/click/utils.py"
+      ],
+      "bytes": 360099,
+      "version": "0.1.8",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 29.19722900000488,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 3335
+        },
+        {
+          "state": "unchanged",
+          "seconds": 23.440847899997607,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 3335
+        }
+      ],
+      "nodes": {
+        "MODULE": 16,
+        "CLASS": 66,
+        "FUNCTION": 111,
+        "METHOD": 335,
+        "FIELD": 270,
+        "GLOBAL_VARIABLE": 64
+      },
+      "edges": {
+        "CONTAINS": 241,
+        "HAS_FIELD": 270,
+        "HAS_METHOD": 335,
+        "INHERITS": 38,
+        "USES": 668
+      },
+      "group_parents": [
+        {
+          "path": "src/click/core.py",
+          "parent": "MultiCommand"
+        }
+      ]
+    },
+    {
+      "repo": "psf/black",
+      "sha": "1b2427a2b785cc4aac97c19bb4b9a0de063f9547",
+      "tag": "24.10.0",
+      "paths": [
+        "src/black/__init__.py",
+        "src/black/__main__.py",
+        "src/black/_width_table.py",
+        "src/black/brackets.py",
+        "src/black/cache.py",
+        "src/black/comments.py",
+        "src/black/concurrency.py",
+        "src/black/const.py",
+        "src/black/debug.py",
+        "src/black/files.py",
+        "src/black/handle_ipynb_magics.py",
+        "src/black/linegen.py",
+        "src/black/lines.py",
+        "src/black/mode.py",
+        "src/black/nodes.py",
+        "src/black/numerics.py",
+        "src/black/output.py",
+        "src/black/parsing.py",
+        "src/black/ranges.py",
+        "src/black/report.py",
+        "src/black/resources/__init__.py",
+        "src/black/rusty.py",
+        "src/black/schema.py",
+        "src/black/strings.py",
+        "src/black/trans.py"
+      ],
+      "bytes": 441395,
+      "version": "0.1.8",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 22.789563199999975,
+          "parsed": 25,
+          "reused": 0,
+          "writes": 2264
+        },
+        {
+          "state": "unchanged",
+          "seconds": 12.180528400000185,
+          "parsed": 25,
+          "reused": 0,
+          "writes": 2264
+        }
+      ],
+      "nodes": {
+        "MODULE": 25,
+        "CLASS": 44,
+        "FUNCTION": 229,
+        "METHOD": 145,
+        "FIELD": 179,
+        "GLOBAL_VARIABLE": 90
+      },
+      "edges": {
+        "CONTAINS": 363,
+        "HAS_FIELD": 179,
+        "HAS_METHOD": 145,
+        "INHERITS": 9,
+        "USES": 464
+      },
+      "group_parents": []
+    },
+    {
+      "repo": "DaveGamble/cJSON",
+      "sha": "acc76239bee01d8e9c858ae2cab296704e52d916",
+      "tag": "v1.7.18",
+      "paths": [
+        "cJSON.c",
+        "cJSON.h",
+        "cJSON_Utils.c",
+        "cJSON_Utils.h"
+      ],
+      "bytes": 144672,
+      "version": "0.1.8",
+      "supported": false
+    },
+    {
+      "repo": "curl/curl",
+      "sha": "7eb8c048470ed2cc14dca75be9c1cdae7ac8498b",
+      "tag": "curl-8_10_1",
+      "paths": [
+        "lib/vtls/bearssl.c",
+        "lib/vtls/bearssl.h",
+        "lib/vtls/cipher_suite.c",
+        "lib/vtls/cipher_suite.h",
+        "lib/vtls/gtls.c",
+        "lib/vtls/gtls.h",
+        "lib/vtls/hostcheck.c",
+        "lib/vtls/hostcheck.h",
+        "lib/vtls/keylog.c",
+        "lib/vtls/keylog.h",
+        "lib/vtls/mbedtls.c",
+        "lib/vtls/mbedtls.h",
+        "lib/vtls/mbedtls_threadlock.c",
+        "lib/vtls/mbedtls_threadlock.h",
+        "lib/vtls/openssl.c",
+        "lib/vtls/openssl.h",
+        "lib/vtls/rustls.c",
+        "lib/vtls/rustls.h",
+        "lib/vtls/schannel.c",
+        "lib/vtls/schannel.h",
+        "lib/vtls/schannel_int.h",
+        "lib/vtls/schannel_verify.c",
+        "lib/vtls/sectransp.c",
+        "lib/vtls/sectransp.h",
+        "lib/vtls/vtls.c",
+        "lib/vtls/vtls.h",
+        "lib/vtls/vtls_int.h",
+        "lib/vtls/wolfssl.c",
+        "lib/vtls/wolfssl.h",
+        "lib/vtls/x509asn1.c",
+        "lib/vtls/x509asn1.h"
+      ],
+      "bytes": 858083,
+      "version": "0.1.8",
+      "supported": false
+    },
+    {
+      "repo": "leethomason/tinyxml2",
+      "sha": "321ea883b7190d4e85cae5512a12e5eaa8f8731f",
+      "tag": "10.0.0",
+      "paths": [
+        "tinyxml2.cpp",
+        "tinyxml2.h"
+      ],
+      "bytes": 153535,
+      "version": "0.1.8",
+      "supported": false
+    },
+    {
+      "repo": "fmtlib/fmt",
+      "sha": "0c9fce2ffefecfdce794e1859584e25877b7b592",
+      "tag": "11.0.2",
+      "paths": [
+        "include/fmt/args.h",
+        "include/fmt/base.h",
+        "include/fmt/chrono.h",
+        "include/fmt/color.h",
+        "include/fmt/compile.h",
+        "include/fmt/core.h",
+        "include/fmt/format-inl.h",
+        "include/fmt/format.h",
+        "include/fmt/os.h",
+        "include/fmt/ostream.h",
+        "include/fmt/printf.h",
+        "include/fmt/ranges.h",
+        "include/fmt/std.h",
+        "include/fmt/xchar.h",
+        "src/fmt.cc",
+        "src/format.cc",
+        "src/os.cc"
+      ],
+      "bytes": 613521,
+      "version": "0.1.8",
+      "supported": false
+    },
+    {
+      "repo": "pallets/click",
+      "sha": "934813e4d421071a1b3db3973c02fe2721359a6e",
+      "tag": "8.1.8",
+      "paths": [
+        "src/click/__init__.py",
+        "src/click/_compat.py",
+        "src/click/_termui_impl.py",
+        "src/click/_textwrap.py",
+        "src/click/_winconsole.py",
+        "src/click/core.py",
+        "src/click/decorators.py",
+        "src/click/exceptions.py",
+        "src/click/formatting.py",
+        "src/click/globals.py",
+        "src/click/parser.py",
+        "src/click/shell_completion.py",
+        "src/click/termui.py",
+        "src/click/testing.py",
+        "src/click/types.py",
+        "src/click/utils.py"
+      ],
+      "bytes": 360099,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 6.386442300005001,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 26
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.17686459999822546,
+          "parsed": 0,
+          "reused": 16,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "FUNCTION": 148,
+        "CLASS": 67,
+        "METHOD": 335,
+        "FIELD": 275,
+        "MODULE": 16,
+        "GLOBAL_VARIABLE": 72
+      },
+      "edges": {
+        "USES": 1186,
+        "CALLS": 301,
+        "HAS_FIELD": 507,
+        "HAS_METHOD": 720,
+        "INHERITS": 38,
+        "CONTAINS": 287,
+        "IMPORTS": 58
+      },
+      "group_parents": [
+        {
+          "path": "src/click/core.py",
+          "parent": "MultiCommand"
+        }
+      ]
+    },
+    {
+      "repo": "psf/black",
+      "sha": "1b2427a2b785cc4aac97c19bb4b9a0de063f9547",
+      "tag": "24.10.0",
+      "paths": [
+        "src/black/__init__.py",
+        "src/black/__main__.py",
+        "src/black/_width_table.py",
+        "src/black/brackets.py",
+        "src/black/cache.py",
+        "src/black/comments.py",
+        "src/black/concurrency.py",
+        "src/black/const.py",
+        "src/black/debug.py",
+        "src/black/files.py",
+        "src/black/handle_ipynb_magics.py",
+        "src/black/linegen.py",
+        "src/black/lines.py",
+        "src/black/mode.py",
+        "src/black/nodes.py",
+        "src/black/numerics.py",
+        "src/black/output.py",
+        "src/black/parsing.py",
+        "src/black/ranges.py",
+        "src/black/report.py",
+        "src/black/resources/__init__.py",
+        "src/black/rusty.py",
+        "src/black/schema.py",
+        "src/black/strings.py",
+        "src/black/trans.py"
+      ],
+      "bytes": 441395,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 1.9942742999992333,
+          "parsed": 25,
+          "reused": 0,
+          "writes": 22
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.14266249999491265,
+          "parsed": 0,
+          "reused": 25,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "MODULE": 25,
+        "GLOBAL_VARIABLE": 90,
+        "CLASS": 44,
+        "FIELD": 184,
+        "METHOD": 145,
+        "FUNCTION": 246
+      },
+      "edges": {
+        "CONTAINS": 380,
+        "HAS_METHOD": 187,
+        "HAS_FIELD": 210,
+        "INHERITS": 8,
+        "USES": 577,
+        "CALLS": 303
+      },
+      "group_parents": []
+    },
+    {
+      "repo": "DaveGamble/cJSON",
+      "sha": "acc76239bee01d8e9c858ae2cab296704e52d916",
+      "tag": "v1.7.18",
+      "paths": [
+        "cJSON.c",
+        "cJSON.h",
+        "cJSON_Utils.c",
+        "cJSON_Utils.h"
+      ],
+      "bytes": 144672,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 0.8411568000010448,
+          "parsed": 4,
+          "reused": 0,
+          "writes": 17
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.07955990000482416,
+          "parsed": 0,
+          "reused": 4,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "FIELD": 8,
+        "MODULE": 4,
+        "GLOBAL_VARIABLE": 13,
+        "FUNCTION": 153,
+        "CLASS": 4,
+        "METHOD": 5
+      },
+      "edges": {
+        "CONTAINS": 170,
+        "IMPORTS": 3,
+        "USES": 87,
+        "CALLS": 220,
+        "HAS_METHOD": 5,
+        "HAS_FIELD": 8
+      },
+      "group_parents": []
+    },
+    {
+      "repo": "curl/curl",
+      "sha": "7eb8c048470ed2cc14dca75be9c1cdae7ac8498b",
+      "tag": "curl-8_10_1",
+      "paths": [
+        "lib/vtls/bearssl.c",
+        "lib/vtls/bearssl.h",
+        "lib/vtls/cipher_suite.c",
+        "lib/vtls/cipher_suite.h",
+        "lib/vtls/gtls.c",
+        "lib/vtls/gtls.h",
+        "lib/vtls/hostcheck.c",
+        "lib/vtls/hostcheck.h",
+        "lib/vtls/keylog.c",
+        "lib/vtls/keylog.h",
+        "lib/vtls/mbedtls.c",
+        "lib/vtls/mbedtls.h",
+        "lib/vtls/mbedtls_threadlock.c",
+        "lib/vtls/mbedtls_threadlock.h",
+        "lib/vtls/openssl.c",
+        "lib/vtls/openssl.h",
+        "lib/vtls/rustls.c",
+        "lib/vtls/rustls.h",
+        "lib/vtls/schannel.c",
+        "lib/vtls/schannel.h",
+        "lib/vtls/schannel_int.h",
+        "lib/vtls/schannel_verify.c",
+        "lib/vtls/sectransp.c",
+        "lib/vtls/sectransp.h",
+        "lib/vtls/vtls.c",
+        "lib/vtls/vtls.h",
+        "lib/vtls/vtls_int.h",
+        "lib/vtls/wolfssl.c",
+        "lib/vtls/wolfssl.h",
+        "lib/vtls/x509asn1.c",
+        "lib/vtls/x509asn1.h"
+      ],
+      "bytes": 858083,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 2.5947861000022385,
+          "parsed": 31,
+          "reused": 0,
+          "writes": 25
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.16254309999931138,
+          "parsed": 0,
+          "reused": 31,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "FUNCTION": 550,
+        "MODULE": 31,
+        "CLASS": 224,
+        "FIELD": 180,
+        "GLOBAL_VARIABLE": 146,
+        "METHOD": 30
+      },
+      "edges": {
+        "USES": 817,
+        "CALLS": 467,
+        "CONTAINS": 920,
+        "IMPORTS": 64,
+        "HAS_FIELD": 177,
+        "HAS_METHOD": 6
+      },
+      "group_parents": []
+    },
+    {
+      "repo": "leethomason/tinyxml2",
+      "sha": "321ea883b7190d4e85cae5512a12e5eaa8f8731f",
+      "tag": "10.0.0",
+      "paths": [
+        "tinyxml2.cpp",
+        "tinyxml2.h"
+      ],
+      "bytes": 153535,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 0.8280833000026178,
+          "parsed": 2,
+          "reused": 0,
+          "writes": 20
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.037285699996573385,
+          "parsed": 0,
+          "reused": 2,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "MODULE": 2,
+        "FUNCTION": 216,
+        "GLOBAL_VARIABLE": 33,
+        "CLASS": 16,
+        "FIELD": 17,
+        "METHOD": 195
+      },
+      "edges": {
+        "CONTAINS": 265,
+        "IMPORTS": 1,
+        "CALLS": 219,
+        "USES": 147,
+        "HAS_FIELD": 17,
+        "HAS_METHOD": 36
+      },
+      "group_parents": []
+    },
+    {
+      "repo": "fmtlib/fmt",
+      "sha": "0c9fce2ffefecfdce794e1859584e25877b7b592",
+      "tag": "11.0.2",
+      "paths": [
+        "include/fmt/args.h",
+        "include/fmt/base.h",
+        "include/fmt/chrono.h",
+        "include/fmt/color.h",
+        "include/fmt/compile.h",
+        "include/fmt/core.h",
+        "include/fmt/format-inl.h",
+        "include/fmt/format.h",
+        "include/fmt/os.h",
+        "include/fmt/ostream.h",
+        "include/fmt/printf.h",
+        "include/fmt/ranges.h",
+        "include/fmt/std.h",
+        "include/fmt/xchar.h",
+        "src/fmt.cc",
+        "src/format.cc",
+        "src/os.cc"
+      ],
+      "bytes": 613521,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 3.1878772000054596,
+          "parsed": 17,
+          "reused": 0,
+          "writes": 26
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.13280249999661464,
+          "parsed": 0,
+          "reused": 17,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "CLASS": 316,
+        "METHOD": 713,
+        "MODULE": 17,
+        "FUNCTION": 417,
+        "FIELD": 472,
+        "GLOBAL_VARIABLE": 62
+      },
+      "edges": {
+        "HAS_FIELD": 478,
+        "HAS_METHOD": 675,
+        "USES": 935,
+        "CALLS": 544,
+        "CONTAINS": 795,
+        "IMPORTS": 31,
+        "INHERITS": 1
+      },
+      "group_parents": []
+    }
+  ]
+}

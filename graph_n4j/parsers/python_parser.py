@@ -28,6 +28,7 @@ class PythonParser(BaseLanguageParser):
     def parse(self, source: bytes, file_path: str) -> ParsedFile:
         root = self.parser.parse(source).root_node
 
+        # Tree-sitter offsets count bytes, even when a line contains multibyte characters.
         def text(node: Node | None) -> str:
             return source[node.start_byte : node.end_byte].decode("utf-8") if node else ""
 

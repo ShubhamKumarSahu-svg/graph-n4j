@@ -17,6 +17,7 @@ class GeminiClient(HTTPClient):
         json_mode: bool = False,
         model_override: str | None = None,
     ) -> str:
+        # Gemini uses model for assistant turns and a separate field for system instructions.
         config: dict[str, Any] = dict(temperature=temperature, maxOutputTokens=max_tokens)
         if json_mode:
             config["responseMimeType"] = "application/json"

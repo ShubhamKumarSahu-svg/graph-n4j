@@ -1,13 +1,4 @@
-"""
-groq_client.py - Groq LLM wrapper with retry/backoff and token usage tracking.
-
-Provides:
-  - GroqClient: thin wrapper around the Groq Python SDK
-  - Exponential backoff with jitter for rate-limit resilience
-  - Running token-usage counter (the paper notes CodexGraph increases token
-    consumption vs. baselines - this lets us measure it)
-  - Structured JSON output mode support
-"""
+"""Send chat requests to Groq and record token usage across retrieval rounds."""
 
 import logging
 import os
@@ -61,8 +52,6 @@ class GroqClient(BaseLLMClient):
         self.usage = TokenUsage()
 
         logger.info("GroqClient initialized - model=%s", self.model)
-
-    # ── Core chat completion ──────────────────────────────
 
     def chat(
         self,
@@ -144,8 +133,6 @@ class GroqClient(BaseLLMClient):
                 raise
 
         raise RuntimeError(f"Groq API failed after {self.max_retries + 1} attempts: {last_error}")
-
-    # ── Convenience: JSON chat ────────────────────────────
 
     def _backoff_delay(self, attempt: int) -> float:
         """Exponential backoff with jitter."""

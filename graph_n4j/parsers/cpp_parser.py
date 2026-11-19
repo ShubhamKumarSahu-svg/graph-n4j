@@ -14,8 +14,9 @@ from graph_n4j.parsers.python_parser import module_name
 
 
 class CppParser(BaseLanguageParser):
-    def __init__(self):
-        self.parser = Parser(Language(tree_sitter_cpp.language()))
+    def __init__(self, language: Language | None = None):
+        # Both grammars expose the same declarator and source-range fields.
+        self.parser = Parser(language or Language(tree_sitter_cpp.language()))
 
     def parse(self, source: bytes, file_path: str) -> ParsedFile:
         root = self.parser.parse(source).root_node
@@ -48,6 +49,7 @@ class CppParser(BaseLanguageParser):
         module = make(root, "MODULE", module_name(file_path))
         result = ParsedFile(module, [module])
 
+        # Pointers and function signatures wrap the identifier in nested declarators.
         def declarator_name(node: Node | None) -> str:
             if node is None:
                 return ""

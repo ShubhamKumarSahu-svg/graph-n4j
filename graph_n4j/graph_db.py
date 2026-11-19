@@ -1,13 +1,4 @@
-"""
-graph_db.py -- Neo4j connection management and query execution helpers.
-
-Provides:
-  - GraphDB class for connection lifecycle and querying
-  - Schema initialization (constraints + indexes)
-  - Bulk MERGE helpers for nodes and edges (idempotent re-indexing)
-  - Repo-scoped query execution (all nodes tagged with repo_id + commit_sha)
-  - Query result formatting with optional truncation
-"""
+"""Manage Neo4j sessions and write repository-scoped symbols and relationships."""
 
 import logging
 import os
@@ -43,8 +34,6 @@ class GraphDB:
         self.database = database
         self._driver: Optional[Driver] = None
 
-    # -- Connection lifecycle ---------------------------------------------------
-
     def connect(self) -> "GraphDB":
         """Establish connection to Neo4j."""
         try:
@@ -78,14 +67,10 @@ class GraphDB:
             raise RuntimeError("Not connected. Call .connect() first.")
         return self._driver
 
-    # -- Schema initialization --------------------------------------------------
-
     def init_schema(self):
         """Create constraints and indexes. Safe to call repeatedly (IF NOT EXISTS)."""
         for stmt in SCHEMA_MIGRATIONS + SCHEMA_CONSTRAINTS + SCHEMA_INDEXES:
             self.run_write(stmt)
-
-    # -- Wipe data (optional repo_id scoping) -----------------------------------
 
     def clear_all(self):
         """Delete all nodes and relationships. USE WITH CAUTION."""
@@ -101,8 +86,6 @@ class GraphDB:
                 repo_id=repo_id,
             )
         logger.info("Cleared data for repo '%s'.", repo_id)
-
-    # -- Query execution --------------------------------------------------------
 
     def run_query(
         self,
@@ -145,8 +128,6 @@ class GraphDB:
             params.update(extra_params)
         return self.run_query(cypher, params)
 
-    # -- Bulk MERGE helpers (idempotent, repo-scoped) ---------------------------
-
     def merge_nodes_batch(
         self,
         label: str,
@@ -158,6 +139,7 @@ class GraphDB:
         if label not in NODE_LABELS or batch_size <= 0:
             raise ValueError("Invalid node label or batch size")
         identity = "name: row.name, file_path: row.file_path, repo_id: $repo_id"
+        # Classes in the same file can reuse a member name. Include the owner in its key.
         if label in ("METHOD", "FIELD"):
             identity += ", class_name: row.class_name"
         query = (
@@ -330,8 +312,6 @@ class GraphDB:
             },
         )
 
-    # -- Edge MERGE helpers (repo-scoped) ---------------------------------------
-
     def merge_contains(
         self,
         module_name: str,
@@ -487,8 +467,6 @@ class GraphDB:
                 "repo_id": repo_id,
             },
         )
-
-    # -- Utility ----------------------------------------------------------------
 
     def get_stats(self, repo_id: Optional[str] = None) -> dict[str, int]:
         """Return counts of each node label and relationship type, optionally scoped."""

@@ -18,5 +18,6 @@ class SymbolTable:
 
     @staticmethod
     def unique(candidates: list[ParsedSymbol]) -> ParsedSymbol | None:
+        # A repeated declaration can share an identity. Distinct owners make a name ambiguous.
         keys = {(s.label, s.name, s.source.file_path, s.class_name): s for s in candidates}
         return next(iter(keys.values())) if len(keys) == 1 else None

@@ -1,17 +1,4 @@
-"""
-cli.py - Command-line interface for graph-n4j.
-
-Entry point for the `graph-n4j` command installed by pip.
-
-Commands:
-    graph-n4j index <path>                    Index a local Python repo
-    graph-n4j index-github <url>              Clone + index a GitHub repo
-    graph-n4j ask "<question>"                Ask a question about the indexed repo
-    graph-n4j stats                           Show graph statistics
-    graph-n4j repos                           List indexed repos
-    graph-n4j clear <repo_id>                 Clear data for a repo
-    graph-n4j cypher "<query>"                Run a raw Cypher query
-"""
+"""Command-line entry points for indexing, querying and managing repository graphs."""
 
 import argparse
 import json
@@ -87,16 +74,15 @@ def main():
         version=f"%(prog)s {__version__}",
         help="Show program's version number and exit",
     )
+    # Keep model selection global so indexing and query commands share the same settings.
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # ── index ─────────────────────────────────────────────
     p_index = subparsers.add_parser("index", help="Index a local Python, C++, or C repository")
     p_index.add_argument("repo_path", help="Path to the repository")
     p_index.add_argument("--repo-id", help="Override the repo identifier")
     p_index.add_argument("--clear", action="store_true", help="Clear existing data before indexing")
     p_index.add_argument("--stats", action="store_true", help="Show graph stats after indexing")
 
-    # ── index-github ─────────────────────────────────────
     p_github = subparsers.add_parser("index-github", help="Clone + index a GitHub repo")
     p_github.add_argument("url", help="GitHub URL or short form (e.g. pallets/click)")
     p_github.add_argument("--commit", help="Pin to a specific commit SHA")
@@ -106,7 +92,6 @@ def main():
     p_github.add_argument("--force", action="store_true", help="Force re-clone")
     p_github.add_argument("--stats", action="store_true", help="Show graph stats after indexing")
 
-    # ── ask ───────────────────────────────────────────────
     p_ask = subparsers.add_parser("ask", help="Ask a question about the indexed repo")
     p_ask.add_argument("--provider", choices=["groq", "openai", "anthropic", "gemini", "ollama"])
     p_ask.add_argument("question", help="Natural language question")
@@ -114,27 +99,21 @@ def main():
     p_ask.add_argument("--max-rounds", type=int, default=5, help="Max retrieval rounds")
     p_ask.add_argument("--json", action="store_true", help="Output full JSON result")
 
-    # ── stats ─────────────────────────────────────────────
     p_stats = subparsers.add_parser("stats", help="Show graph statistics")
     p_stats.add_argument("--repo-id", help="Scope to a specific repo")
 
-    # ── repos ─────────────────────────────────────────────
     subparsers.add_parser("repos", help="List all indexed repositories")
 
-    # ── view ──────────────────────────────────────────────
     subparsers.add_parser("view", help="View the graph visually in Neo4j Browser")
 
-    # ── change-model ──────────────────────────────────────
     p_chmodel = subparsers.add_parser(
         "change-model", help="Change the default Groq LLM model in .env"
     )
     p_chmodel.add_argument("model_name", help="The new model name (e.g., llama-3.3-70b-versatile)")
 
-    # ── clear ─────────────────────────────────────────────
     p_clear = subparsers.add_parser("clear", help="Clear data for a repo")
     p_clear.add_argument("repo_id", help="Repo ID to clear (or 'all')")
 
-    # ── cypher ────────────────────────────────────────────
     p_cypher = subparsers.add_parser("cypher", help="Run a raw Cypher query")
     p_cypher.add_argument("query", help="Cypher query string")
 

@@ -1,10 +1,4 @@
-"""
-code_generator.py - Application 4: Feature-driven code generation.
-
-Takes a feature request, explores the existing codebase via graph queries to
-understand relevant patterns and structures, then generates new code that
-integrates with the existing architecture.
-"""
+"""Retrieve existing code and conventions before drafting a feature implementation."""
 
 import logging
 
@@ -73,4 +67,5 @@ class CodeGenerator:
             PipelineResult with generated code and integration instructions.
         """
         logger.info("CodeGenerator - feature: '%s'", feature_request[:100])
+        # Return the proposed implementation for review. Applying it belongs to the caller.
         return self.pipeline.run(feature_request)

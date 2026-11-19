@@ -20,6 +20,7 @@ class OpenAIClient(HTTPClient):
         payload: dict[str, Any] = dict(
             model=model, messages=messages, max_completion_tokens=max_tokens
         )
+        # These reasoning models use their own sampling settings.
         if not model.startswith(("o1", "o3", "o4")):
             payload["temperature"] = temperature
         if json_mode:

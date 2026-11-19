@@ -1,21 +1,4 @@
-"""
-core.py - High-level facade for graph-n4j.
-
-Provides a single `GraphN4J` class that wraps all internal components
-(GraphDB, GroqClient, indexer, pipeline, apps) behind a simple API.
-
-Usage:
-    from graph_n4j import GraphN4J
-
-    g = GraphN4J.from_env()                 # reads .env / env vars
-    g.index("./my-repo")                    # index a local Python project
-    result = g.ask("What does class X do?") # ask anything
-    print(result.answer)
-
-    # Or clone + index a GitHub repo:
-    g.index_github("pallets/click")
-    result = g.ask("How does the Group class work?")
-"""
+"""Index local and Git repositories and answer questions against the stored graph."""
 
 import logging
 import os
@@ -88,6 +71,7 @@ class GraphN4J:
 
     @property
     def client(self) -> BaseLLMClient:
+        # Indexing only needs Neo4j. Open the model client on the first question.
         if self._client is None:
             from graph_n4j.llm import create_client
 
@@ -97,8 +81,6 @@ class GraphN4J:
                 else create_client(self.provider, self._model)
             )
         return self._client
-
-    # ── Factory methods ──────────────────────────────────────
 
     @classmethod
     def from_env(
@@ -131,8 +113,6 @@ class GraphN4J:
             neo4j_database=os.getenv("NEO4J_DATABASE", "neo4j"),
         )
 
-    # ── Connection lifecycle ─────────────────────────────────
-
     def connect(self) -> "GraphN4J":
         """Connect to Neo4j. Call this before indexing or querying."""
         self.db.connect()
@@ -154,8 +134,6 @@ class GraphN4J:
     def _ensure_connected(self):
         if not self._connected:
             self.connect()
-
-    # ── Indexing ─────────────────────────────────────────────
 
     def index(
         self,
@@ -236,8 +214,6 @@ class GraphN4J:
 
         return meta
 
-    # ── Querying ─────────────────────────────────────────────
-
     def ask(
         self,
         question: str,
@@ -287,8 +263,6 @@ class GraphN4J:
             ),
         )
         return pipeline.run(question)
-
-    # ── Utility ──────────────────────────────────────────────
 
     def search_symbols(
         self, query: str, repo_id: Optional[str] = None, limit: int = 20

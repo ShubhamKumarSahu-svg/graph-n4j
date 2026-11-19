@@ -1,15 +1,4 @@
-"""
-pipeline.py -- Iterative dual-agent pipeline with token efficiency optimizations.
-
-Per Section 3.2 of the paper, plus B1-B7 token efficiency improvements:
-  B1. Repo skeleton injection (--include-skeleton)
-  B2. Query/translation caching (--enable-cache)
-  B3. Context pruning - seen code replaced with reference tags (--compact-context)
-  B4. Result truncation to top-K rows (--truncate-results)
-  B5. Cheaper model for Translation Agent (GROQ_MODEL_TRANSLATION)
-  B6. Early-stopping on empty/duplicate results (--early-stop)
-  B7. All caches keyed by (repo_id, commit_sha)
-"""
+"""Run retrieval rounds and keep the evidence used to answer each question."""
 
 import logging
 import os
@@ -38,20 +27,18 @@ class PipelineResult:
     answer: str
     rounds_used: int
     total_queries: int
-    neo4j_roundtrips: int = 0  # B2: actual DB hits (excl. cache hits)
+    neo4j_roundtrips: int = 0  # actual DB hits (excl. cache hits)
     context_history: list[dict] = field(default_factory=list)
     token_usage: dict = field(default_factory=dict)
-    cache_stats: dict = field(default_factory=dict)  # B2: hit/miss rates
+    cache_stats: dict = field(default_factory=dict)  # hit/miss rates
     errors: list[str] = field(default_factory=list)
-    early_stopped: bool = False  # B6: whether early-stop fired
+    early_stopped: bool = False  # whether early-stop fired
     early_stop_reason: str = ""
 
 
 class CodexGraphPipeline:
     """
-    Orchestrates the iterative dual-agent loop with token efficiency optimizations.
-
-    All B-flags default ON except B5 (cheaper translation model), which is opt-in.
+    Plan graph lookups, run them and feed the results into the next retrieval round.
     """
 
     def __init__(
@@ -63,15 +50,14 @@ class CodexGraphPipeline:
         task_instruction: str = "",
         no_translation_agent: bool = False,
         no_edges: bool = False,
-        # ── B-flag controls ──
         repo_id: str = "",
         commit_sha: str = "",
-        include_skeleton: bool = True,  # B1
-        enable_cache: bool = True,  # B2
-        compact_context: bool = True,  # B3
-        truncate_max_rows: int = 15,  # B4 (0 = disabled)
-        translation_model: Optional[str] = None,  # B5
-        early_stop: bool = True,  # B6
+        include_skeleton: bool = True,
+        enable_cache: bool = True,
+        compact_context: bool = True,
+        truncate_max_rows: int = 15,  # (0 = disabled)
+        translation_model: Optional[str] = None,
+        early_stop: bool = True,
         # Shared cache objects (reuse across pipeline calls in a session)
         skeleton_cache: Optional[SkeletonCache] = None,
         query_cache: Optional[QueryCache] = None,
@@ -83,7 +69,6 @@ class CodexGraphPipeline:
         self.no_translation_agent = no_translation_agent
         self.no_edges = no_edges
 
-        # B-flag settings
         self.repo_id = repo_id
         self.commit_sha = commit_sha
         self.include_skeleton = include_skeleton
@@ -93,7 +78,7 @@ class CodexGraphPipeline:
         self.translation_model = translation_model or os.getenv("GROQ_MODEL_TRANSLATION")
         self.early_stop = early_stop
 
-        # Cache objects - shared across calls for session-level reuse (B7)
+        # A caller can share caches across questions about the same revision.
         self.skeleton_cache = skeleton_cache or SkeletonCache()
         self.query_cache = query_cache or QueryCache(enabled=enable_cache)
 
@@ -111,7 +96,7 @@ class CodexGraphPipeline:
                 "node labels with property filters."
             )
 
-        # B1: Build/load skeleton and inject into system prompt
+        # Build/load skeleton and inject into system prompt
         skeleton_text = ""
         if include_skeleton:
             skeleton = self.skeleton_cache.get(repo_id, commit_sha)
@@ -136,7 +121,7 @@ class CodexGraphPipeline:
 
         self.translation_agent = TranslationAgent(
             groq_client=groq_client,
-            model_override=self.translation_model,  # B5
+            model_override=self.translation_model,
         )
 
     def run(self, question: str) -> PipelineResult:
@@ -148,7 +133,7 @@ class CodexGraphPipeline:
         errors: list[str] = []
         previous_results: list[str] = []
 
-        # B3: Context tracker for this session
+        # Each question starts with its own set of previously shown source snippets.
         ctx_tracker = ContextTracker(enabled=self.compact_context)
 
         logger.info("Pipeline started -- question: '%s'", question[:100])
@@ -156,7 +141,6 @@ class CodexGraphPipeline:
         for round_num in range(1, self.max_rounds + 1):
             logger.info("--- Round %d/%d ---", round_num, self.max_rounds)
 
-            # -- Step 1: Primary Agent generates analysis + queries --
             try:
                 primary_response = self.primary_agent.run(question, context_history)
             except Exception as e:
@@ -185,7 +169,6 @@ class CodexGraphPipeline:
                 logger.warning("No queries generated in round %d. Ending pipeline.", round_num)
                 break
 
-            # -- Step 2: Translate + Execute each query --
             round_results: list[str] = []
             for nl_query in queries:
                 total_queries += 1
@@ -195,7 +178,7 @@ class CodexGraphPipeline:
                     if self.no_translation_agent:
                         cypher = nl_query
                     else:
-                        # B2: Check translation cache first
+                        # Check translation cache first
                         cached_cypher = self.query_cache.get_translation(nl_query)
                         if cached_cypher:
                             cypher = cached_cypher
@@ -210,9 +193,8 @@ class CodexGraphPipeline:
                     round_results.append(f"(Translation error: {e})")
                     continue
 
-                # Execute against Neo4j (with B2 result cache)
+                # A result belongs to one repository revision, even if the query text matches.
                 try:
-                    # B2: Check result cache
                     cached_result = self.query_cache.get_cypher_result(
                         cypher, self.repo_id, self.commit_sha
                     )
@@ -230,7 +212,7 @@ class CodexGraphPipeline:
                         except Exception:
                             pass  # Don't fail on cache write errors
 
-                    # B4: Truncate large result sets
+                    # Truncate large result sets
                     if self.truncate_max_rows > 0:
                         records, truncation_note = truncate_results(
                             records, max_rows=self.truncate_max_rows
@@ -240,7 +222,7 @@ class CodexGraphPipeline:
 
                     formatted = self.db.format_results(records)
 
-                    # B3: Compact already-seen code
+                    # Compact already-seen code
                     if self.compact_context:
                         formatted = ctx_tracker.compact_results(formatted, round_num)
                         for rec in records:
@@ -258,7 +240,7 @@ class CodexGraphPipeline:
                     errors.append(error_msg)
                     round_results.append(f"(Query execution error: {e})")
 
-            # B6: Early-stopping heuristic
+            # Early-stopping heuristic
             if self.early_stop:
                 stop, reason = should_early_stop(round_results, previous_results)
                 if stop:
@@ -286,7 +268,6 @@ class CodexGraphPipeline:
 
             previous_results = round_results
 
-            # -- Step 3: Store round context --
             context_history.append(
                 {
                     "round": round_num,
@@ -295,7 +276,6 @@ class CodexGraphPipeline:
                 }
             )
 
-        # -- Fallback: max rounds reached --
         logger.info("Max rounds reached. Requesting final synthesis.")
         answer = self._synthesize_final(question, context_history)
 

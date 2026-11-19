@@ -25,6 +25,7 @@ class ParsedSymbol:
     docstring: str = ""
 
     def properties(self) -> dict[str, Any]:
+        # Neo4j stores source ranges as scalar properties alongside each symbol.
         return dict(
             name=self.name,
             file_path=self.source.file_path,

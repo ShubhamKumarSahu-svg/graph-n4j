@@ -1,17 +1,4 @@
-"""
-graph-n4j - Bridge LLM agents with code repositories via Neo4j graph databases.
-
-Based on the CodexGraph NAACL 2025 paper:
-"CodexGraph: Bridging Large Language Models and Code Repositories via Code Graph Databases"
-
-Quick Start:
-    from graph_n4j import GraphN4J
-
-    g = GraphN4J.from_env()              # reads GROQ_API_KEY, NEO4J_* from .env
-    g.index("./my-python-project")       # index a local repo
-    result = g.ask("What does the Foo class do?")
-    print(result.answer)
-"""
+"""Public Python interface for indexing a repository and querying its code graph."""
 
 from graph_n4j._version import __version__
 from graph_n4j.cache import ContextTracker, QueryCache, SkeletonCache

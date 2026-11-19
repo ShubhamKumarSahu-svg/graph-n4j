@@ -1,9 +1,4 @@
-"""
-code_chat.py -- Application 1: Free-form Q&A over an indexed repository.
-
-The simplest application -- takes any natural language question about the codebase
-and uses the dual-agent pipeline to retrieve relevant context and answer it.
-"""
+"""Answer questions about an indexed repository using its source and graph relationships."""
 
 import logging
 
@@ -58,4 +53,5 @@ class CodeChat:
             PipelineResult with the answer and retrieval stats.
         """
         logger.info("CodeChat -- question: '%s'", question[:100])
+        # The pipeline returns the answer alongside the queries and evidence behind it.
         return self.pipeline.run(question)

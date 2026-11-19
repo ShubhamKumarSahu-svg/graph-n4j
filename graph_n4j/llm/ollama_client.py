@@ -21,6 +21,7 @@ class OllamaClient(HTTPClient):
         json_mode: bool = False,
         model_override: str | None = None,
     ) -> str:
+        # Request a single response so token counts and the reply arrive together.
         payload: dict[str, Any] = dict(
             model=model_override or self.model,
             messages=messages,

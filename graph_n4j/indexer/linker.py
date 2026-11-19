@@ -123,6 +123,7 @@ class TopologicalLinker:
                         )
                 else:
                     self.add("CONTAINS", file.module, symbol)
+        # Resolve call sites once every file has contributed its imports and owners.
         for file in self.table.files.values():
             for ref in file.references:
                 labels = {

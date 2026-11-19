@@ -1,13 +1,4 @@
-"""
-repo_manager.py -- Git repository cloning, caching, and metadata management.
-
-Handles:
-  - Cloning GitHub repos into a local cache (./repos/<org>__<name>/)
-  - Pinning to a specific commit SHA for reproducibility
-  - Recording metadata (repo_id, commit_sha, clone time)
-  - File filtering (exclude tests, vendored code, large files)
-  - Size guards to prevent OOM on huge repos
-"""
+"""Clone or open a repository, identify its revision and select source files for indexing."""
 
 import json
 import logging
@@ -23,7 +14,6 @@ from git import Repo as GitRepo
 
 logger = logging.getLogger(__name__)
 
-# ---- Default constants -------------------------------------------------------
 
 DEFAULT_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "repos")
 
@@ -78,7 +68,6 @@ EXCLUDED_DIR_PATTERNS = [
 MAX_FILE_SIZE_BYTES = 500_000  # 500 KB per file (skip generated / data files)
 MAX_TOTAL_FILES = 2000  # Hard cap; warn if exceeded
 
-# ---- Recommended repos -------------------------------------------------------
 
 RECOMMENDED_REPOS = {
     "pallets/click": {
@@ -145,9 +134,6 @@ class FilterConfig:
     additional_exclude_patterns: list[str] = field(default_factory=list)
 
 
-# ---- Repo Manager ------------------------------------------------------------
-
-
 class RepoManager:
     """
     Manages repository cloning, caching, and metadata.
@@ -155,14 +141,12 @@ class RepoManager:
     Usage:
         mgr = RepoManager()
         meta = mgr.clone_repo("https://github.com/pallets/click")
-        py_files = mgr.get_python_files(meta)
+        source_files = mgr.get_python_files(meta)
     """
 
     def __init__(self, cache_dir: Optional[str] = None):
         self.cache_dir = cache_dir or DEFAULT_CACHE_DIR
         os.makedirs(self.cache_dir, exist_ok=True)
-
-    # ---- Cloning & metadata --------------------------------------------------
 
     def clone_repo(
         self,
@@ -266,18 +250,16 @@ class RepoManager:
             local_path=repo_path,
         )
 
-    # ---- File filtering (Section 4 of the paper) -----------------------------
-
     def get_source_files(
         self,
         meta: RepoMetadata,
         filter_config: Optional[FilterConfig] = None,
     ) -> list[str]:
         """
-        Get filtered list of .py files to index.
+        Collect Python, C and C++ files under the repository root.
 
         Applies filtering per the paper's Section 4:
-          - Only .py files
+          - Registered source and header extensions
           - Exclude test directories/files
           - Exclude vendored/generated code
           - Respect max file size and total file count
@@ -287,11 +269,11 @@ class RepoManager:
             filter_config: Optional filter configuration.
 
         Returns:
-            List of absolute .py file paths to index.
+            List of absolute source file paths to index.
         """
         config = filter_config or FilterConfig()
         repo_root = meta.local_path
-        py_files = []
+        source_files = []
         skipped = 0
 
         # Build full set of excluded dirs
@@ -311,7 +293,7 @@ class RepoManager:
             dirs[:] = [d for d in dirs if d not in excluded_dirs and not d.endswith(".egg-info")]
 
             for fname in files:
-                if not fname.endswith((".py", ".cpp", ".cc", ".hpp", ".h", ".cxx", ".hxx")):
+                if not fname.endswith((".py", ".c", ".cpp", ".cc", ".hpp", ".h", ".cxx", ".hxx")):
                     continue
 
                 # Check file name patterns
@@ -331,10 +313,10 @@ class RepoManager:
                 except OSError:
                     continue
 
-                py_files.append(fpath)
+                source_files.append(fpath)
 
                 # Check total file count
-                if len(py_files) >= config.max_total_files:
+                if len(source_files) >= config.max_total_files:
                     logger.warning(
                         "Max file limit (%d) reached for %s. "
                         "Increase max_total_files or narrow filtering.",
@@ -343,25 +325,23 @@ class RepoManager:
                     )
                     break
 
-            if len(py_files) >= config.max_total_files:
+            if len(source_files) >= config.max_total_files:
                 break
 
-        meta.total_files = len(py_files)
+        meta.total_files = len(source_files)
         meta.skipped_files = skipped
         logger.info(
-            "Found %d .py files (%d skipped) for %s",
-            len(py_files),
+            "Found %d source files (%d skipped) for %s",
+            len(source_files),
             skipped,
             meta.repo_id,
         )
-        return py_files
+        return source_files
 
     def get_python_files(
         self, meta: RepoMetadata, filter_config: Optional[FilterConfig] = None
     ) -> list[str]:
         return [p for p in self.get_source_files(meta, filter_config) if p.endswith(".py")]
-
-    # ---- List indexed repos --------------------------------------------------
 
     def list_cached_repos(self) -> list[RepoMetadata]:
         """List all repos in the local cache with their metadata."""
@@ -379,8 +359,6 @@ class RepoManager:
                 except Exception as e:
                     logger.warning("Could not load metadata for %s: %s", entry, e)
         return repos
-
-    # ---- Helpers -------------------------------------------------------------
 
     @staticmethod
     def _url_to_repo_id(url: str) -> str:
