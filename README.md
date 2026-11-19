@@ -63,23 +63,23 @@ We used pinned source revisions and measured a first index from an empty reposit
 
 ### First-index time
 
-![First-index time comparison for Click and Black](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/presentation/economist-figures/first-index.png)
+![First-index time comparison for Click and Black](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/images/first-index.png)
 
 ### Database write calls
 
-![Neo4j write-helper calls for Click and Black](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/presentation/economist-figures/write-calls.png)
+![Neo4j write-helper calls for Click and Black](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/images/write-calls.png)
 
 ### Unchanged reindex time
 
-![Unchanged reindex time for Click and Black](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/presentation/economist-figures/repeat-index.png)
+![Unchanged reindex time for Click and Black](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/images/repeat-index.png)
 
 ### Native-language graph coverage
 
-![Stored CALLS and IMPORTS relationships in the C and C++ benchmark graphs](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/presentation/economist-figures/native.png)
+![Stored CALLS and IMPORTS relationships in the C and C++ benchmark graphs](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/images/native.png)
 
 These results compare complete indexing paths. Parser support, linking, graph records, cache reuse and database writes changed together, so the timings do not isolate Tree-sitter's effect. Edge counts describe stored relationships, not correctness scores. We did not measure precision or recall against a labelled set of expected edges.
 
-The [benchmark data and runner](https://github.com/ShubhamKumarSahu-svg/graph-n4j/tree/main/benchmarks) include the pinned inputs and measurements. The [research paper](https://github.com/ShubhamKumarSahu-svg/graph-n4j/blob/main/presentation/graph-n4j-research-paper-economist.pdf) gives the full method and limitations. The [presentation](https://github.com/ShubhamKumarSahu-svg/graph-n4j/blob/main/presentation/graph-n4j-economist.pdf) walks through the architecture and demo.
+The benchmark table and figures are shown here. Machine-readable measurements are available in [benchmark-results.json](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/benchmark-results.json).
 
 ## Install and run
 
@@ -140,3 +140,4 @@ Neo4j is required for indexing and graph queries. A language-model provider key 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
