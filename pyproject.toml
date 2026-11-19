@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-n4j"
-version = "1.1.0"
-description = "Bridge LLM agents with code repositories via Neo4j graph databases. Based on the CodexGraph NAACL 2025 paper."
+version = "1.1.1"
+description = "Index Python, C and C++ repositories in Neo4j and query their code relationships."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

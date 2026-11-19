@@ -1,0 +1,435 @@
+{
+  "release_tag": "v1.1.0",
+  "click_commit": "934813e4d421071a1b3db3973c02fe2721359a6e",
+  "demo": {
+    "0.1.8": [
+      {
+        "state": "first",
+        "parsed": 2,
+        "reused": 0,
+        "writes": 6,
+        "quote": "95",
+        "calls": [],
+        "edges": [
+          {
+            "source": "checkout",
+            "kind": "CONTAINS",
+            "target": "quote"
+          },
+          {
+            "source": "rates",
+            "kind": "CONTAINS",
+            "target": "discount"
+          }
+        ]
+      },
+      {
+        "state": "unchanged",
+        "parsed": 2,
+        "reused": 0,
+        "writes": 6,
+        "quote": "95",
+        "calls": [],
+        "edges": [
+          {
+            "source": "checkout",
+            "kind": "CONTAINS",
+            "target": "quote"
+          },
+          {
+            "source": "rates",
+            "kind": "CONTAINS",
+            "target": "discount"
+          }
+        ]
+      },
+      {
+        "state": "edit",
+        "parsed": 2,
+        "reused": 0,
+        "writes": 6,
+        "quote": "90",
+        "calls": [],
+        "edges": [
+          {
+            "source": "checkout",
+            "kind": "CONTAINS",
+            "target": "quote"
+          },
+          {
+            "source": "rates",
+            "kind": "CONTAINS",
+            "target": "discount"
+          }
+        ]
+      }
+    ],
+    "1.1.0": [
+      {
+        "state": "first",
+        "parsed": 2,
+        "reused": 0,
+        "writes": 7,
+        "quote": "95",
+        "calls": [
+          {
+            "name": "discount",
+            "file": "rates.py"
+          }
+        ],
+        "edges": [
+          {
+            "source": "quote",
+            "kind": "CALLS",
+            "target": "discount"
+          },
+          {
+            "source": "checkout",
+            "kind": "CONTAINS",
+            "target": "quote"
+          },
+          {
+            "source": "rates",
+            "kind": "CONTAINS",
+            "target": "discount"
+          },
+          {
+            "source": "checkout",
+            "kind": "IMPORTS",
+            "target": "rates"
+          }
+        ]
+      },
+      {
+        "state": "unchanged",
+        "parsed": 0,
+        "reused": 2,
+        "writes": 1,
+        "quote": "95",
+        "calls": [
+          {
+            "name": "discount",
+            "file": "rates.py"
+          }
+        ],
+        "edges": [
+          {
+            "source": "quote",
+            "kind": "CALLS",
+            "target": "discount"
+          },
+          {
+            "source": "checkout",
+            "kind": "CONTAINS",
+            "target": "quote"
+          },
+          {
+            "source": "rates",
+            "kind": "CONTAINS",
+            "target": "discount"
+          },
+          {
+            "source": "checkout",
+            "kind": "IMPORTS",
+            "target": "rates"
+          }
+        ]
+      },
+      {
+        "state": "edit",
+        "parsed": 1,
+        "reused": 1,
+        "writes": 7,
+        "quote": "90",
+        "calls": [
+          {
+            "name": "discount",
+            "file": "rates.py"
+          }
+        ],
+        "edges": [
+          {
+            "source": "quote",
+            "kind": "CALLS",
+            "target": "discount"
+          },
+          {
+            "source": "checkout",
+            "kind": "CONTAINS",
+            "target": "quote"
+          },
+          {
+            "source": "rates",
+            "kind": "CONTAINS",
+            "target": "discount"
+          },
+          {
+            "source": "checkout",
+            "kind": "IMPORTS",
+            "target": "rates"
+          }
+        ]
+      }
+    ]
+  },
+  "click_trials": [
+    {
+      "trial": 1,
+      "version": "0.1.8",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 37.99591370000417,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 3335
+        },
+        {
+          "state": "unchanged",
+          "seconds": 18.985785800003214,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 3335
+        }
+      ],
+      "nodes": {
+        "MODULE": 16,
+        "CLASS": 66,
+        "FUNCTION": 111,
+        "METHOD": 335,
+        "FIELD": 270,
+        "GLOBAL_VARIABLE": 64
+      },
+      "edges": {
+        "CONTAINS": 241,
+        "HAS_FIELD": 270,
+        "HAS_METHOD": 335,
+        "INHERITS": 38,
+        "USES": 668
+      },
+      "group_parents": [
+        {
+          "path": "src/click/core.py",
+          "parent": "MultiCommand"
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 10.05065520000062,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 26
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.3433235999982571,
+          "parsed": 0,
+          "reused": 16,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "MODULE": 16,
+        "GLOBAL_VARIABLE": 72,
+        "FUNCTION": 148,
+        "CLASS": 67,
+        "METHOD": 335,
+        "FIELD": 275
+      },
+      "edges": {
+        "CONTAINS": 287,
+        "IMPORTS": 58,
+        "CALLS": 301,
+        "USES": 1186,
+        "HAS_FIELD": 507,
+        "HAS_METHOD": 720,
+        "INHERITS": 38
+      },
+      "group_parents": [
+        {
+          "path": "src/click/core.py",
+          "parent": "MultiCommand"
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 2.2190458999975817,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 26
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.16954110000369838,
+          "parsed": 0,
+          "reused": 16,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "MODULE": 16,
+        "GLOBAL_VARIABLE": 72,
+        "FUNCTION": 148,
+        "CLASS": 67,
+        "METHOD": 335,
+        "FIELD": 275
+      },
+      "edges": {
+        "CONTAINS": 287,
+        "IMPORTS": 58,
+        "CALLS": 301,
+        "USES": 1186,
+        "HAS_FIELD": 507,
+        "HAS_METHOD": 720,
+        "INHERITS": 38
+      },
+      "group_parents": [
+        {
+          "path": "src/click/core.py",
+          "parent": "MultiCommand"
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "version": "0.1.8",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 25.4899155000021,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 3335
+        },
+        {
+          "state": "unchanged",
+          "seconds": 16.43575039999996,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 3335
+        }
+      ],
+      "nodes": {
+        "MODULE": 16,
+        "CLASS": 66,
+        "FUNCTION": 111,
+        "METHOD": 335,
+        "FIELD": 270,
+        "GLOBAL_VARIABLE": 64
+      },
+      "edges": {
+        "CONTAINS": 241,
+        "HAS_FIELD": 270,
+        "HAS_METHOD": 335,
+        "INHERITS": 38,
+        "USES": 668
+      },
+      "group_parents": [
+        {
+          "path": "src/click/core.py",
+          "parent": "MultiCommand"
+        }
+      ]
+    },
+    {
+      "trial": 3,
+      "version": "0.1.8",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 22.275088300004427,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 3335
+        },
+        {
+          "state": "unchanged",
+          "seconds": 15.723137999993924,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 3335
+        }
+      ],
+      "nodes": {
+        "MODULE": 16,
+        "CLASS": 66,
+        "FUNCTION": 111,
+        "METHOD": 335,
+        "FIELD": 270,
+        "GLOBAL_VARIABLE": 64
+      },
+      "edges": {
+        "CONTAINS": 241,
+        "HAS_FIELD": 270,
+        "HAS_METHOD": 335,
+        "INHERITS": 38,
+        "USES": 668
+      },
+      "group_parents": [
+        {
+          "path": "src/click/core.py",
+          "parent": "MultiCommand"
+        }
+      ]
+    },
+    {
+      "trial": 3,
+      "version": "1.1.0",
+      "supported": true,
+      "measurements": [
+        {
+          "state": "empty",
+          "seconds": 3.039891300002637,
+          "parsed": 16,
+          "reused": 0,
+          "writes": 26
+        },
+        {
+          "state": "unchanged",
+          "seconds": 0.16271860000415472,
+          "parsed": 0,
+          "reused": 16,
+          "writes": 1
+        }
+      ],
+      "nodes": {
+        "MODULE": 16,
+        "GLOBAL_VARIABLE": 72,
+        "FUNCTION": 148,
+        "CLASS": 67,
+        "METHOD": 335,
+        "FIELD": 275
+      },
+      "edges": {
+        "CONTAINS": 287,
+        "IMPORTS": 58,
+        "CALLS": 301,
+        "USES": 1186,
+        "HAS_FIELD": 507,
+        "HAS_METHOD": 720,
+        "INHERITS": 38
+      },
+      "group_parents": [
+        {
+          "path": "src/click/core.py",
+          "parent": "MultiCommand"
+        }
+      ]
+    }
+  ]
+}
