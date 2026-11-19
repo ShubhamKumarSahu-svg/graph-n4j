@@ -140,4 +140,3 @@ Neo4j is required for indexing and graph queries. A language-model provider key 
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
