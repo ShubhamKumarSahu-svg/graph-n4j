@@ -33,7 +33,10 @@ class HTTPClient(BaseLLMClient):
         self, path: str, payload: dict[str, Any], headers: dict[str, str] | None = None
     ) -> dict[str, Any]:
         if self.key_env and not self.api_key:
-            raise ValueError(f"Set {self.key_env} to use this provider")
+            raise ValueError(
+                f"{self.key_env} is missing. Set it to use the 'ask' command; "
+                "indexing does not need an LLM key."
+            )
         # Back off on rate limits and temporary server errors. Surface other failures immediately.
         for attempt in range(3):
             response = self.http.post(self.base_url + path, json=payload, headers=headers)

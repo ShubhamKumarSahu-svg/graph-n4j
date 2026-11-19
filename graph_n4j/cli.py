@@ -142,7 +142,14 @@ def main():
 
     g = None
     try:
-        g = GraphN4J.from_env(model_override=args.model, provider=getattr(args, "provider", None))
+        # Only natural-language Q&A needs an LLM. Indexing, graph maintenance,
+        # Cypher queries, and stats should work without any model API key.
+        needs_llm = args.command == "ask"
+        g = GraphN4J.from_env(
+            model_override=args.model if needs_llm else None,
+            provider=getattr(args, "provider", None) if needs_llm else None,
+            llm_enabled=needs_llm,
+        )
 
         if args.command == "index":
             _cmd_index(g, args)
@@ -163,28 +170,40 @@ def main():
         elif args.command == "change-model":
             _cmd_change_model(args)
     except ValueError as e:
-        print(f"\n[ERROR] Configuration Error: {e}")
-        print("Hint: Check the selected provider and its API key environment variable.")
+        detail = str(e)
+        if "API key" in detail or "API_KEY" in detail:
+            print("\n[ERROR] The selected AI provider is not configured.")
+            print(f"Details: {detail}")
+            print("Only 'ask' needs an AI provider key; indexing does not.")
+            print("Set the environment variable required by your selected provider.")
+        else:
+            print(f"\n[ERROR] Configuration problem: {detail}")
+            print("Check the command options and required environment settings.")
+        if args.verbose:
+            import traceback
+
+            traceback.print_exc()
         sys.exit(1)
     except KeyboardInterrupt:
         print("\nInterrupted.")
         sys.exit(130)
     except Exception as e:
-        error_msg = str(e)
-        if (
-            "neo4j" in error_msg.lower()
-            or "serviceunavailable" in str(type(e)).lower()
-            or "auth" in error_msg.lower()
-        ):
-            print(f"\n[ERROR] Database Connection Error: {error_msg}")
-            print(
-                (
-                    "Hint: Make sure Neo4j is running and NEO4J_URI, NEO4J_USER, "
-                    "NEO4J_PASSWORD are set correctly."
-                )
-            )
+        from neo4j.exceptions import AuthError, ServiceUnavailable
+
+        if isinstance(e, ServiceUnavailable):
+            uri = g.db.uri if g is not None else "bolt://localhost:7687"
+            print(f"\n[ERROR] Cannot reach Neo4j at {uri}.")
+            print("Start Neo4j and confirm that NEO4J_URI points to its Bolt address.")
+            print("For Docker, check the container with: docker ps")
+        elif isinstance(e, AuthError):
+            print("\n[ERROR] Neo4j rejected the login details.")
+            print("Check NEO4J_USER and NEO4J_PASSWORD, then try again.")
+        elif isinstance(e, FileNotFoundError):
+            print(f"\n[ERROR] File or folder not found: {e.filename or e}")
+            print("Check the repository path and run the command from the right folder.")
         else:
-            print(f"\n[ERROR] {error_msg}", file=sys.stderr)
+            print(f"\n[ERROR] The command could not finish: {e}", file=sys.stderr)
+            print("Run 'graph-n4j --verbose <command>' for diagnostic details.")
 
         if args.verbose:
             import traceback

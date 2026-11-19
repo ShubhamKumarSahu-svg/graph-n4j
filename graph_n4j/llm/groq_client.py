@@ -41,7 +41,10 @@ class GroqClient(BaseLLMClient):
     ):
         self.api_key = api_key or os.getenv("GROQ_API_KEY")
         if not self.api_key:
-            raise ValueError("Groq API key required. Set GROQ_API_KEY env var or pass api_key=.")
+            raise ValueError(
+                "GROQ_API_KEY is missing. Set it to use the 'ask' command; "
+                "indexing does not need a Groq key."
+            )
 
         self.model = model or (os.getenv("GROQ_MODEL") or DEFAULT_MODEL)
         self.max_retries = max_retries

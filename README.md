@@ -1,12 +1,12 @@
 # graph-n4j
 
-Index Python, C and C++ code in Neo4j, then query relationships between files, classes and functions. Version 1.1.1 republishes the 1.1.0 indexer with an expanded README. The indexer uses Tree-sitter grammars, SHA-256 file checks, a cross-file linker and batched graph writes.
+Index Python, C and C++ code in Neo4j, then query relationships between files, classes and functions. Version 1.1.2 keeps indexing independent of AI-provider keys and gives clearer setup errors. The indexer uses Tree-sitter grammars, SHA-256 file checks, a cross-file linker and batched graph writes.
 
 ![graph-n4j 1.1.0 indexing pipeline](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/images/readme-indexing.png)
 
 ## How indexing works
 
-The indexer reads selected files and calculates a SHA-256 digest for each one. If the saved digest, extractor version and extracted records still match, it restores the saved records. Otherwise, Tree-sitter parses the whole changed file with the grammar for Python, C or C++.
+The indexer reads selected files and calculates a SHA-256 digest for each one. If the saved digest, extractor version and extracted records still match, it restores the saved records. Otherwise, Tree-sitter parses the whole changed file with the grammar for Python, C or C++. Indexing needs Neo4j but no AI-provider API key; a key is needed only for natural-language `ask` requests that use a hosted model.
 
 The parsers emit symbols, such as functions and classes, plus references, such as a call whose target still needs to be found. The linker matches those names across files. The writer sends the resulting graph records to Neo4j in batches.
 
@@ -86,7 +86,7 @@ The benchmark table and figures are shown here. Machine-readable measurements ar
 Install graph-n4j:
 
 ```bash
-pip install graph-n4j
+python -m pip install "graph-n4j @ git+https://github.com/ShubhamKumarSahu-svg/graph-n4j.git"
 ```
 
 Start a local Neo4j instance for development:

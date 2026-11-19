@@ -11,7 +11,6 @@ from graph_n4j.agents.pipeline import CodexGraphPipeline, PipelineResult
 from graph_n4j.cache import QueryCache, SkeletonCache
 from graph_n4j.graph_db import GraphDB
 from graph_n4j.llm.base import BaseLLMClient
-from graph_n4j.llm.groq_client import GroqClient
 from graph_n4j.repo_manager import RepoManager, RepoMetadata
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ class GraphN4J:
         neo4j_database: str = "neo4j",
         cache_dir: Optional[str] = None,
         repos_dir: Optional[str] = None,
-        provider: str = "groq",
+        provider: Optional[str] = "groq",
         model: Optional[str] = None,
     ):
         """
@@ -72,14 +71,20 @@ class GraphN4J:
     @property
     def client(self) -> BaseLLMClient:
         # Indexing only needs Neo4j. Open the model client on the first question.
+        if self.provider is None:
+            raise ValueError(
+                "This GraphN4J instance has no language-model provider. "
+                "Configure a provider to use natural-language questions."
+            )
         if self._client is None:
             from graph_n4j.llm import create_client
 
-            self._client = (
-                GroqClient(api_key=self._groq_api_key, model=self._model)
-                if self.provider == "groq"
-                else create_client(self.provider, self._model)
-            )
+            if self.provider == "groq":
+                from graph_n4j.llm.groq_client import GroqClient
+
+                self._client = GroqClient(api_key=self._groq_api_key, model=self._model)
+            else:
+                self._client = create_client(self.provider, self._model)
         return self._client
 
     @classmethod
@@ -88,6 +93,7 @@ class GraphN4J:
         dotenv_path: Optional[str] = None,
         model_override: Optional[str] = None,
         provider: Optional[str] = None,
+        llm_enabled: bool = True,
     ) -> "GraphN4J":
         """
         Create a GraphN4J instance from environment variables.
@@ -98,6 +104,7 @@ class GraphN4J:
         Args:
             dotenv_path: Optional path to a .env file.
             model_override: Optional explicit model string overriding env.
+            llm_enabled: Set False for workflows that must not initialize an AI provider.
         """
         if dotenv_path is None:
             dotenv_path = find_dotenv(usecwd=True)
@@ -105,7 +112,11 @@ class GraphN4J:
         return cls(
             groq_api_key=os.getenv("GROQ_API_KEY"),
             groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-            provider=provider or os.getenv("LLM_PROVIDER") or "groq",
+            provider=(
+                (provider or os.getenv("LLM_PROVIDER") or "groq")
+                if llm_enabled
+                else None
+            ),
             model=model_override,
             neo4j_uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
             neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
