@@ -130,9 +130,9 @@ class GroqClient(BaseLLMClient):
                 )
                 time.sleep(delay)
 
-            except APIError as e:
+            except APIError:
                 # Non-retryable API errors
-                logger.error("Groq API error: %s", e)
+                logger.debug("Provider request failed", exc_info=True)
                 raise
 
         raise RuntimeError(f"Groq API failed after {self.max_retries + 1} attempts: {last_error}")

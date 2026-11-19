@@ -98,13 +98,12 @@ docker run -d --name graph-n4j-db \
   neo4j:5-community
 ```
 
-Set the database connection and a provider key for natural-language questions:
+Set the database connection for indexing:
 
 ```bash
 export NEO4J_URI=bolt://localhost:7687
 export NEO4J_USER=neo4j
 export NEO4J_PASSWORD=change-me
-export GROQ_API_KEY="gsk_your_key"
 ```
 
 Index a local project or a public GitHub repository, then ask a question:
@@ -114,6 +113,12 @@ graph-n4j index ./project --repo-id example/project --stats
 graph-n4j index-github pallets/click --stats
 graph-n4j ask "Where is command routing handled?" --repo-id pallets/click --provider groq
 ```
+
+For questions, select Groq, OpenAI, Anthropic, Gemini or local Ollama with
+`--provider`. Hosted providers use their own API keys. See the
+[provider setup guide](https://github.com/ShubhamKumarSahu-svg/graph-n4j/blob/main/docs/providers.md)
+for environment variables and examples. Indexing has no default file-count or
+file-size cap. Language and directory filters still apply.
 
 For direct graph access, use Cypher:
 

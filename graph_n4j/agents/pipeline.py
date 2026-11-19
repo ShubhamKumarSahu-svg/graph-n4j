@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+from graph_n4j.messages import explain_error
 from graph_n4j.agents.primary_agent import PrimaryAgent
 from graph_n4j.agents.translation_agent import TranslationAgent
 from graph_n4j.cache import (
@@ -144,8 +145,8 @@ class CodexGraphPipeline:
             try:
                 primary_response = self.primary_agent.run(question, context_history)
             except Exception as e:
-                error_msg = f"Round {round_num}: Primary Agent error -- {e}"
-                logger.error(error_msg)
+                error_msg = explain_error(e, "ask")
+                logger.debug(error_msg, exc_info=True)
                 errors.append(error_msg)
                 break
 
@@ -187,10 +188,10 @@ class CodexGraphPipeline:
                             cypher = self.translation_agent.translate(nl_query)
                             self.query_cache.put_translation_with_nl(nl_query, cypher)
                 except Exception as e:
-                    error_msg = f"Translation error for '{nl_query[:50]}': {e}"
-                    logger.error(error_msg)
+                    error_msg = explain_error(e, "ask")
+                    logger.debug(error_msg, exc_info=True)
                     errors.append(error_msg)
-                    round_results.append(f"(Translation error: {e})")
+                    round_results.append(error_msg)
                     continue
 
                 # A result belongs to one repository revision, even if the query text matches.
@@ -235,10 +236,10 @@ class CodexGraphPipeline:
                     logger.info("Query returned %d records.", len(records))
 
                 except Exception as e:
-                    error_msg = f"Neo4j query error -- Cypher: '{cypher[:80]}' -- {e}"
-                    logger.error(error_msg)
+                    error_msg = explain_error(e, "cypher")
+                    logger.debug(error_msg, exc_info=True)
                     errors.append(error_msg)
-                    round_results.append(f"(Query execution error: {e})")
+                    round_results.append(error_msg)
 
             # Early-stopping heuristic
             if self.early_stop:
@@ -316,8 +317,8 @@ class CodexGraphPipeline:
 
         try:
             return self.client.chat(messages, temperature=0.3, json_mode=False)
-        except Exception as e:
-            logger.error("Final synthesis failed: %s", e)
+        except Exception:
+            logger.debug("Retrying answer with shorter context", exc_info=True)
             # Retry with a shorter context summary
             try:
                 short_context = "\n".join(
@@ -327,11 +328,9 @@ class CodexGraphPipeline:
                     f"Question: {question}\n\nContext summary:\n{short_context}"
                 )
                 return self.client.chat(messages, temperature=0.3, json_mode=False)
-            except Exception:
-                logger.error("Final synthesis retry also failed.")
-                return (
-                    "Unable to synthesize a final answer. See context history for partial results."
-                )
+            except Exception as exc:
+                logger.debug("Final answer failed", exc_info=True)
+                return explain_error(exc, "ask")
 
     def _get_token_delta(self, initial_total: int) -> dict:
         """Calculate tokens used in this pipeline run."""

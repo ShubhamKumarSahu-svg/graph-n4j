@@ -10,7 +10,7 @@ class OllamaClient(HTTPClient):
 
     def __init__(self, **kwargs):
         kwargs.setdefault("base_url", os.getenv("OLLAMA_HOST", self.default_url))
-        kwargs.setdefault("model", os.getenv("OLLAMA_MODEL", self.default_model))
+        kwargs["model"] = kwargs.get("model") or os.getenv("OLLAMA_MODEL", self.default_model)
         super().__init__(**kwargs)
 
     def chat(

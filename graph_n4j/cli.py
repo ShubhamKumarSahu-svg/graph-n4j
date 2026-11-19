@@ -169,42 +169,13 @@ def main():
             _cmd_view()
         elif args.command == "change-model":
             _cmd_change_model(args)
-    except ValueError as e:
-        detail = str(e)
-        if "API key" in detail or "API_KEY" in detail:
-            print("\n[ERROR] The selected AI provider is not configured.")
-            print(f"Details: {detail}")
-            print("Only 'ask' needs an AI provider key; indexing does not.")
-            print("Set the environment variable required by your selected provider.")
-        else:
-            print(f"\n[ERROR] Configuration problem: {detail}")
-            print("Check the command options and required environment settings.")
-        if args.verbose:
-            import traceback
-
-            traceback.print_exc()
-        sys.exit(1)
     except KeyboardInterrupt:
-        print("\nInterrupted.")
+        print("Stopped at your request. Run the command again to continue.", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
-        from neo4j.exceptions import AuthError, ServiceUnavailable
+        from graph_n4j.messages import explain_error
 
-        if isinstance(e, ServiceUnavailable):
-            uri = g.db.uri if g is not None else "bolt://localhost:7687"
-            print(f"\n[ERROR] Cannot reach Neo4j at {uri}.")
-            print("Start Neo4j and confirm that NEO4J_URI points to its Bolt address.")
-            print("For Docker, check the container with: docker ps")
-        elif isinstance(e, AuthError):
-            print("\n[ERROR] Neo4j rejected the login details.")
-            print("Check NEO4J_USER and NEO4J_PASSWORD, then try again.")
-        elif isinstance(e, FileNotFoundError):
-            print(f"\n[ERROR] File or folder not found: {e.filename or e}")
-            print("Check the repository path and run the command from the right folder.")
-        else:
-            print(f"\n[ERROR] The command could not finish: {e}", file=sys.stderr)
-            print("Run 'graph-n4j --verbose <command>' for diagnostic details.")
-
+        print(explain_error(e, args.command), file=sys.stderr)
         if args.verbose:
             import traceback
 
@@ -216,44 +187,32 @@ def main():
 
 
 def _cmd_index(g, args):
-    print(f"\n{'=' * 60}")
-    print("  graph-n4j - Indexing local repo")
-    print(f"  Path: {args.repo_path}")
-    print(f"{'=' * 60}\n")
-
-    meta = g.index(
-        args.repo_path,
-        repo_id=args.repo_id,
-        clear_existing=args.clear,
-    )
-
-    print(f"\n  ✓ Indexed: {meta.repo_id}")
-    print(f"  ✓ Commit:  {meta.short_sha()}")
-    print(f"  ✓ Files:   {meta.total_files} ({meta.skipped_files} skipped)")
-    print(f"  ✓ Time:    {meta.index_time:.1f}s")
-
-    if args.stats:
-        _print_stats(g, meta.repo_id)
+    _index_with_status(args.repo_path, args, g, g.index, repo_id=args.repo_id)
 
 
 def _cmd_index_github(g, args):
-    print(f"\n{'=' * 60}")
-    print("  graph-n4j - Indexing GitHub repo")
-    print(f"  URL: {args.url}")
-    print(f"{'=' * 60}\n")
-
-    meta = g.index_github(
-        args.url,
-        commit_sha=args.commit,
-        clear_existing=args.clear,
-        force_clone=args.force,
+    _index_with_status(
+        args.url, args, g, g.index_github, commit_sha=args.commit, force_clone=args.force
     )
 
-    print(f"\n  ✓ Indexed: {meta.repo_id}")
-    print(f"  ✓ Commit:  {meta.short_sha()}")
-    print(f"  ✓ Files:   {meta.total_files} ({meta.skipped_files} skipped)")
-    print(f"  ✓ Time:    {meta.index_time:.1f}s")
 
+def _index_with_status(target, args, g, index, **options):
+    from rich.console import Console
+    from contextlib import nullcontext
+
+    console = Console(stderr=True)
+    print(f"Indexing {target} ...", file=sys.stderr)
+    status = (
+        console.status("Building the code graph", spinner="dots")
+        if console.is_terminal
+        else nullcontext()
+    )
+    with status:
+        meta = index(target, clear_existing=args.clear, **options)
+    print(f"Indexed {meta.repo_id} at {meta.short_sha()} in {meta.index_time:.1f}s.")
+    print(f"Files indexed: {meta.total_files}. Files excluded by filters: {meta.skipped_files}.")
+    if not meta.total_files:
+        print("Choose a folder containing Python, C or C++ source outside excluded directories.")
     if args.stats:
         _print_stats(g, meta.repo_id)
 
@@ -280,6 +239,8 @@ def _cmd_ask(g, args):
         }
         print(json.dumps(output, indent=2))
     else:
+        for message in dict.fromkeys(result.errors):
+            print(message, file=sys.stderr)
         _render_markdown(result.answer)
         try:
             from rich.console import Console
@@ -312,7 +273,7 @@ def _cmd_repos(g):
     g.connect()
     repos = g.list_repos()
     if not repos:
-        print("No repos indexed.")
+        print("No repositories indexed yet. Run 'graph-n4j index .' in your project folder.")
         return
     print(f"\n{'Repo ID':<30s} {'Commit':<14s} {'Modules':>8s}")
     print("-" * 54)
@@ -325,10 +286,10 @@ def _cmd_clear(g, args):
     g.connect()
     if args.repo_id == "all":
         g.clear_all()
-        print("All data cleared.")
+        print("Cleared all data from the configured graph database.")
     else:
         g.clear_repo(args.repo_id)
-        print(f"Data cleared for '{args.repo_id}'.")
+        print(f"Cleared graph data for '{args.repo_id}'.")
 
 
 def _cmd_cypher(g, args):
@@ -340,17 +301,9 @@ def _cmd_cypher(g, args):
 def _cmd_view():
     import webbrowser
 
-    print("\nOpening Neo4j Browser...")
-    print("If it doesn't open automatically, visit: http://localhost:7474")
-    print("\nFastest way to view the complete graph:")
-    print("Once logged in, paste this Cypher query in the top bar and press Enter:\n")
-    print("    MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 300\n")
-    print(
-        (
-            "(Note: rendering an *entire* large codebase at once can freeze "
-            "your browser, so we limit it to 300 relationships!)\n"
-        )
-    )
+    print("Opening Neo4j Browser at http://localhost:7474")
+    print("To view up to 300 relationships, run this query in the browser:")
+    print("MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 300")
     try:
         webbrowser.open("http://localhost:7474")
     except Exception:
@@ -370,13 +323,13 @@ def _cmd_change_model(args):
     else:
         set_key(dotenv_path, "GROQ_MODEL", args.model_name)
 
-    print(f"\n[OK] Default model permanently changed to: {args.model_name}")
+    print(f"\n[OK] Saved the default Groq model: {args.model_name}")
     print(f"Updated config file: {dotenv_path}\n")
 
 
 def _print_stats(g, repo_id=None):
     stats = g.stats(repo_id)
-    print("\n  Graph Statistics:")
+    print("\n  Graph statistics")
     print("  Nodes:")
     for label in ["MODULE", "CLASS", "FUNCTION", "METHOD", "FIELD", "GLOBAL_VARIABLE"]:
         print(f"    {label:20s} {stats.get(label, 0):>6d}")

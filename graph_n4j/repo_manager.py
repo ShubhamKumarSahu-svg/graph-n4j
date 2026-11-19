@@ -65,10 +65,6 @@ EXCLUDED_DIR_PATTERNS = [
     "Tests",
 ]
 
-MAX_FILE_SIZE_BYTES = 500_000  # 500 KB per file (skip generated / data files)
-MAX_TOTAL_FILES = 2000  # Hard cap; warn if exceeded
-
-
 RECOMMENDED_REPOS = {
     "pallets/click": {
         "url": "https://github.com/pallets/click",
@@ -128,8 +124,8 @@ class FilterConfig:
 
     exclude_tests: bool = True
     exclude_vendored: bool = True
-    max_file_size: int = MAX_FILE_SIZE_BYTES
-    max_total_files: int = MAX_TOTAL_FILES
+    max_file_size: int | None = None
+    max_total_files: int | None = None
     additional_exclude_dirs: list[str] = field(default_factory=list)
     additional_exclude_patterns: list[str] = field(default_factory=list)
 
@@ -303,20 +299,22 @@ class RepoManager:
 
                 fpath = os.path.join(root, fname)
 
-                # Check file size
-                try:
-                    fsize = os.path.getsize(fpath)
-                    if fsize > config.max_file_size:
-                        logger.debug("Skipping large file (%d bytes): %s", fsize, fpath)
+                if config.max_file_size is not None:
+                    try:
+                        if os.path.getsize(fpath) > config.max_file_size:
+                            skipped += 1
+                            continue
+                    except OSError:
                         skipped += 1
                         continue
-                except OSError:
-                    continue
 
                 source_files.append(fpath)
 
                 # Check total file count
-                if len(source_files) >= config.max_total_files:
+                if (
+                    config.max_total_files is not None
+                    and len(source_files) >= config.max_total_files
+                ):
                     logger.warning(
                         "Max file limit (%d) reached for %s. "
                         "Increase max_total_files or narrow filtering.",
@@ -325,7 +323,7 @@ class RepoManager:
                     )
                     break
 
-            if len(source_files) >= config.max_total_files:
+            if config.max_total_files is not None and len(source_files) >= config.max_total_files:
                 break
 
         meta.total_files = len(source_files)

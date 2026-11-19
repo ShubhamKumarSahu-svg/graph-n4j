@@ -151,8 +151,8 @@ class PrimaryAgent:
                 messages=messages,
                 temperature=self.temperature,
             )
-        except Exception as e:
-            logger.warning("Primary Agent JSON mode failed: %s. Retrying without JSON mode.", e)
+        except Exception:
+            logger.debug("Retrying without JSON mode", exc_info=True)
             import json as _json
             import re as _re
 
