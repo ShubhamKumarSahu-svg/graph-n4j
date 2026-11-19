@@ -35,13 +35,22 @@ class UnifiedIndexer:
         self.metrics = IndexMetrics()
         start = time.perf_counter()
         previous = self.db.run_query(
-            "MATCH (m:MODULE {repo_id: $repo_id}) RETURN m.file_path AS file_path, "
-            "m.content_hash AS content_hash, m.parsed_data AS parsed_data, "
-            "m.index_version AS index_version",
+            "MATCH (m:MODULE {repo_id: $repo_id}) RETURN properties(m) AS module_properties",
             {"repo_id": repo_id},
         )
-        # A parse is reusable only when the bytes and the extractor version both match.
-        cached = {r["file_path"]: r for r in previous}
+        # Read properties as a map so older module nodes without cache fields do not
+        # trigger Neo4j's unknown-property warnings during the first upgraded run.
+        # A parse is reusable only when the bytes and extractor version both match.
+        cached = {}
+        for row in previous:
+            properties = row.get("module_properties") or {}
+            file_path = properties.get("file_path")
+            if file_path:
+                cached[file_path] = {
+                    "content_hash": properties.get("content_hash"),
+                    "parsed_data": properties.get("parsed_data"),
+                    "index_version": properties.get("index_version"),
+                }
         parsed: list[ParsedFile] = []
         changed = set()
         for file_path in files:

@@ -1,6 +1,6 @@
 # graph-n4j
 
-Index Python, C and C++ code in Neo4j, then query relationships between files, classes and functions. Version 1.1.2 keeps indexing independent of AI-provider keys and gives clearer setup errors. The indexer uses Tree-sitter grammars, SHA-256 file checks, a cross-file linker and batched graph writes.
+Index Python, C and C++ code in Neo4j, then query relationships between files, classes and functions. Version 1.1.3 keeps indexing independent of AI-provider keys and avoids cache warnings on older Neo4j graphs. The indexer uses Tree-sitter grammars, SHA-256 file checks, a cross-file linker and batched graph writes.
 
 ![graph-n4j 1.1.0 indexing pipeline](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/images/readme-indexing.png)
 

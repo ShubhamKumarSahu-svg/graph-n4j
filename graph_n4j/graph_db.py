@@ -41,10 +41,10 @@ class GraphDB:
             self._driver.verify_connectivity()
             logger.info("Connected to Neo4j at %s", self.uri)
         except ServiceUnavailable:
-            logger.error("Cannot connect to Neo4j at %s. Is it running?", self.uri)
+            logger.debug("Neo4j is unreachable at %s", self.uri, exc_info=True)
             raise
         except AuthError:
-            logger.error("Neo4j authentication failed for user '%s'.", self.user)
+            logger.debug("Neo4j rejected the configured credentials", exc_info=True)
             raise
         return self
 
