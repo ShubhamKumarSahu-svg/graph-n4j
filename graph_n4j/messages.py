@@ -14,6 +14,12 @@ def explain_error(exc: Exception, command: str) -> str:
     if isinstance(exc, ServiceUnavailable):
         return "Cannot reach Neo4j. Start the database and check its Bolt address in NEO4J_URI."
     if isinstance(exc, Neo4jError):
+        if command == "clear" and "MemoryPoolOutOfMemoryError" in (exc.code or ""):
+            return (
+                "Neo4j ran out of transaction memory during deletion. "
+                "Earlier batches may have finished. Wait for other database writes "
+                "to finish, then repeat the same clear command."
+            )
         if command == "cypher":
             return (
                 "Neo4j could not run the query. Check the Cypher syntax and database permissions."
