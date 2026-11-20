@@ -27,6 +27,8 @@ graph-n4j --model qwen2.5-coder ask "Where does indexing start?" --provider olla
 Set `OLLAMA_HOST` if your server uses an address other than `http://localhost:11434`.
 Set `LLM_PROVIDER` to reuse a provider across commands. If the provider rejects the model, pass a model available to your account with `--model` before `ask`.
 
+Interactive `ask` commands show a spinner until the answer is ready. Use `--json` for machine-readable output.
+
 ### Choose a chat model in PowerShell
 
 For Groq, set `GROQ_API_KEY` first. The following command uses the key from your environment or project's `.env` file to list model IDs. Pick a text chat model your account can use.

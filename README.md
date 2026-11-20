@@ -1,6 +1,6 @@
 # graph-n4j
 
-Index Python, C and C++ code in Neo4j, then query relationships between files, classes and functions. Version 1.1.5 reports failed model requests and retries empty answers. The indexer uses Tree-sitter grammars, SHA-256 file checks, a cross-file linker and batched graph writes.
+Index Python, C and C++ code in Neo4j, then query relationships between files, classes and functions. Version 1.1.6 reports failed model requests and retries empty answers. The indexer uses Tree-sitter grammars, SHA-256 file checks, a cross-file linker and batched graph writes.
 
 ![graph-n4j 1.1.0 indexing pipeline](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/images/readme-indexing.png)
 
@@ -139,6 +139,8 @@ For a running local Ollama server:
 ollama pull qwen2.5-coder
 graph-n4j --model qwen2.5-coder ask "Which functions call the parser?" --repo-id pallets/click --provider ollama
 ```
+
+Interactive `ask` commands show a spinner until the answer is ready. Use `--json` for machine-readable output.
 
 ### Choose a chat model in PowerShell
 

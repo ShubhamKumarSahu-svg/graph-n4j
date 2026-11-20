@@ -219,13 +219,22 @@ def _index_with_status(target, args, g, index, **options):
 
 
 def _cmd_ask(g, args):
-    g.connect()
+    from contextlib import nullcontext
+    from rich.console import Console
 
-    result = g.ask(
-        args.question,
-        repo_id=args.repo_id,
-        max_rounds=args.max_rounds,
+    console = Console(stderr=True)
+    status = (
+        console.status("Preparing your answer...", spinner="dots")
+        if console.is_terminal and not args.json
+        else nullcontext()
     )
+    with status:
+        g.connect()
+        result = g.ask(
+            args.question,
+            repo_id=args.repo_id,
+            max_rounds=args.max_rounds,
+        )
 
     if args.json:
         output = {

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graph-n4j"
-version = "1.1.5"
+version = "1.1.6"
 description = "Index Python, C and C++ repositories in Neo4j and query their code relationships."
 readme = "README.md"
 license = "MIT"
