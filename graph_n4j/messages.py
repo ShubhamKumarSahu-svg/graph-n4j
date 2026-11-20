@@ -1,6 +1,7 @@
 """Short CLI diagnostics. Full driver and provider errors are available with --verbose."""
 
 import errno
+import logging
 import re
 
 import httpx
@@ -48,3 +49,36 @@ def explain_error(exc: Exception, command: str) -> str:
                 "Cannot reach the model server. Check its address and that the service is running."
             )
     return f"Could not finish '{command}'. Run graph-n4j --verbose {command} with the same arguments for details."
+
+class DiagnosticFormatter(logging.Formatter):
+    """Keep server objects, query text and tracebacks in verbose output."""
+
+    def __init__(self, command: str):
+        super().__init__()
+        self.command = command
+
+    def format(self, record: logging.LogRecord) -> str:
+        level = "Error" if record.levelno >= logging.ERROR else "Warning"
+        detail = record.getMessage()
+        hint = f"Run graph-n4j --verbose {self.command} with the same arguments for details."
+        if record.name.startswith("neo4j"):
+            if "MemoryPoolOutOfMemoryError" in detail:
+                message = "Neo4j reached its transaction memory limit."
+                hint = "Wait for other writes to finish, then retry the command."
+            elif record.name == "neo4j.notifications":
+                if "DEPRECATION" in detail or "deprecated" in detail.lower():
+                    message = "Neo4j accepted a query that uses older syntax."
+                    hint = "If you wrote the query, update its syntax before upgrading Neo4j."
+                elif "property key does not exist" in detail.lower():
+                    message = "The query references a property missing from this database."
+                    hint = "Check the property name and confirm the repository has been indexed."
+                else:
+                    message = "Neo4j issued a query advisory."
+            else:
+                message = "Neo4j reported a database issue."
+        else:
+            # Avoid printing serialized exceptions or multi-line payloads from libraries.
+            message = detail.splitlines()[0] if detail else record.name
+            if len(message) > 180:
+                message = message[:177] + "..."
+        return f"{level}: {message}\nHint: {hint}"

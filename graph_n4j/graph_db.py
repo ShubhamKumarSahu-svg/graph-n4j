@@ -74,21 +74,20 @@ class GraphDB:
 
     def clear_all(self):
         """Delete all nodes and relationships. USE WITH CAUTION."""
-        with self.driver.session(database=self.database) as session:
-            session.run(
-                "MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 100 ROWS"
-            ).consume()
-        logger.info("All data cleared from database '%s'.", self.database)
+        self._delete_batches("MATCH (n)", {})
 
     def clear_repo(self, repo_id: str):
-        """Delete all nodes and relationships for a specific repo."""
+        """Delete only the selected repository's nodes and their relationships."""
+        self._delete_batches("MATCH (n {repo_id: $repo_id})", {"repo_id": repo_id})
+
+    def _delete_batches(self, match: str, parameters: dict):
+        query = match + " WITH n LIMIT 100 DETACH DELETE n"
         with self.driver.session(database=self.database) as session:
-            session.run(
-                "MATCH (n {repo_id: $repo_id}) "
-                "CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 100 ROWS",
-                repo_id=repo_id,
-            ).consume()
-        logger.info("Cleared data for repo '%s'.", repo_id)
+            while True:
+                # Consuming each result confirms its commit and surfaces server errors.
+                summary = session.run(query, parameters).consume()
+                if summary.counters.nodes_deleted == 0:
+                    break
 
     def run_query(
         self,

@@ -123,25 +123,23 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    # Logging
-    log_level = logging.DEBUG if args.verbose else logging.WARNING
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S",
+    from graph_n4j.messages import DiagnosticFormatter
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(name)s [%(levelname)s] %(message)s")
+        if args.verbose else DiagnosticFormatter(args.command)
     )
-
-    # Silence overly verbose third-party loggers even in DEBUG mode unless specifically
-    # debugging them
-    if not args.verbose:
-        logging.getLogger("httpx").setLevel(logging.WARNING)
-        logging.getLogger("neo4j").setLevel(logging.WARNING)
-
-    # Import here (after dotenv loaded) to avoid import errors on missing env vars
-    from graph_n4j.core import GraphN4J
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.WARNING,
+        handlers=[handler],
+        force=True,
+    )
 
     g = None
     try:
+        from graph_n4j.core import GraphN4J
+
         # Only natural-language Q&A needs an LLM. Indexing, graph maintenance,
         # Cypher queries, and stats should work without any model API key.
         needs_llm = args.command == "ask"
@@ -175,7 +173,10 @@ def main():
     except Exception as e:
         from graph_n4j.messages import explain_error
 
-        print(explain_error(e, args.command), file=sys.stderr)
+        summary, _, hint = explain_error(e, args.command).partition(". ")
+        print(f"Error: {summary.rstrip('.')}.", file=sys.stderr)
+        if hint:
+            print(f"Hint: {hint}", file=sys.stderr)
         if args.verbose:
             import traceback
 
