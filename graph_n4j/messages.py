@@ -42,6 +42,12 @@ def explain_error(exc: Exception, command: str) -> str:
             status = exc.response.status_code
         if status in (401, 403):
             return "The provider rejected the request. Check the API key and model permissions."
+        if status == 404:
+            return "The model or endpoint was not found. Check the provider URL and select an available model with --model before ask."
+        if status in (400, 413, 422):
+            return f"The provider rejected the model request (HTTP {status}). Check the model name and context limit, or run with --verbose for the provider's reason."
+        if isinstance(status, int) and status >= 500:
+            return f"The provider returned a server error (HTTP {status}). Retry your question later."
         if status == 429:
             return "The provider reached its request limit. Check your quota or try again later."
         if isinstance(exc, httpx.RequestError):

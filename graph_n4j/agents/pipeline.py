@@ -139,12 +139,15 @@ class CodexGraphPipeline:
 
         logger.info("Pipeline started -- question: '%s'", question[:100])
 
+        round_num = 0
         for round_num in range(1, self.max_rounds + 1):
             logger.info("--- Round %d/%d ---", round_num, self.max_rounds)
 
             try:
                 primary_response = self.primary_agent.run(question, context_history)
             except Exception as e:
+                if not context_history:
+                    raise
                 error_msg = explain_error(e, "ask")
                 logger.debug(error_msg, exc_info=True)
                 errors.append(error_msg)
@@ -282,7 +285,7 @@ class CodexGraphPipeline:
 
         return PipelineResult(
             answer=answer,
-            rounds_used=self.max_rounds,
+            rounds_used=round_num,
             total_queries=total_queries,
             neo4j_roundtrips=neo4j_roundtrips,
             context_history=context_history,
@@ -328,9 +331,9 @@ class CodexGraphPipeline:
                     f"Question: {question}\n\nContext summary:\n{short_context}"
                 )
                 return self.client.chat(messages, temperature=0.3, json_mode=False)
-            except Exception as exc:
+            except Exception:
                 logger.debug("Final answer failed", exc_info=True)
-                return explain_error(exc, "ask")
+                raise
 
     def _get_token_delta(self, initial_total: int) -> dict:
         """Calculate tokens used in this pipeline run."""

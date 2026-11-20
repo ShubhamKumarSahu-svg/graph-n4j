@@ -109,6 +109,8 @@ class GroqClient(BaseLLMClient):
                 return content
 
             except RateLimitError as e:
+                if attempt == self.max_retries:
+                    raise
                 last_error = e
                 delay = self._backoff_delay(attempt)
                 logger.warning(
@@ -120,6 +122,8 @@ class GroqClient(BaseLLMClient):
                 time.sleep(delay)
 
             except APITimeoutError as e:
+                if attempt == self.max_retries:
+                    raise
                 last_error = e
                 delay = self._backoff_delay(attempt)
                 logger.warning(
