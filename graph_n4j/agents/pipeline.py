@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
-from graph_n4j.messages import explain_error
+from graph_n4j.messages import EmptyModelAnswer, explain_error
 from graph_n4j.agents.primary_agent import PrimaryAgent
 from graph_n4j.agents.translation_agent import TranslationAgent
 from graph_n4j.cache import (
@@ -156,6 +156,8 @@ class CodexGraphPipeline:
             # Check if sufficient context
             if primary_response.get("sufficient_context", False):
                 answer = primary_response.get("final_answer", primary_response.get("analysis", ""))
+                if not isinstance(answer, str) or not answer.strip():
+                    answer = self._synthesize_final(question, context_history)
                 logger.info("Primary Agent signals sufficient context at round %d.", round_num)
                 return PipelineResult(
                     answer=answer,
@@ -319,21 +321,23 @@ class CodexGraphPipeline:
         ]
 
         try:
-            return self.client.chat(messages, temperature=0.3, json_mode=False)
+            answer = self.client.chat(messages, temperature=0.3, json_mode=False)
+            if isinstance(answer, str) and answer.strip():
+                return answer.strip()
         except Exception:
             logger.debug("Retrying answer with shorter context", exc_info=True)
-            # Retry with a shorter context summary
-            try:
-                short_context = "\n".join(
-                    f"Round {e['round']}: {str(e['results'])[:500]}" for e in context_history
-                )
-                messages[1]["content"] = (
-                    f"Question: {question}\n\nContext summary:\n{short_context}"
-                )
-                return self.client.chat(messages, temperature=0.3, json_mode=False)
-            except Exception:
-                logger.debug("Final answer failed", exc_info=True)
-                raise
+
+        short_context = "\n".join(
+            f"Round {item['round']}: {str(item['results'])[:500]}" for item in context_history
+        )
+        messages[1]["content"] = (
+            f"Question: {question}\nGraph results: {short_context}\n"
+            "Write a brief answer. If the graph lacks evidence, say which part is unknown."
+        )
+        answer = self.client.chat(messages, temperature=0.3, json_mode=False)
+        if not isinstance(answer, str) or not answer.strip():
+            raise EmptyModelAnswer()
+        return answer.strip()
 
     def _get_token_delta(self, initial_total: int) -> dict:
         """Calculate tokens used in this pipeline run."""

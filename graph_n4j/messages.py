@@ -9,7 +9,13 @@ from git.exc import GitCommandError
 from neo4j.exceptions import AuthError, Neo4jError, ServiceUnavailable
 
 
+class EmptyModelAnswer(ValueError):
+    """The provider finished a request without returning answer text."""
+
+
 def explain_error(exc: Exception, command: str) -> str:
+    if isinstance(exc, EmptyModelAnswer):
+        return "The model returned an empty answer twice. Retry with a shorter question or select another chat model with --model."
     if isinstance(exc, AuthError):
         return "Neo4j rejected the login. Check NEO4J_USER and NEO4J_PASSWORD."
     if isinstance(exc, ServiceUnavailable):
