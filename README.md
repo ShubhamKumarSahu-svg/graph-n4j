@@ -86,7 +86,7 @@ The benchmark table and figures are shown here. Machine-readable measurements ar
 Install graph-n4j:
 
 ```bash
-python -m pip install "graph-n4j @ git+https://github.com/ShubhamKumarSahu-svg/graph-n4j.git"
+python -m pip install --upgrade graph-n4j
 ```
 
 Start a local Neo4j instance for development:
@@ -114,11 +114,33 @@ graph-n4j index-github pallets/click --stats
 graph-n4j ask "Where is command routing handled?" --repo-id pallets/click --provider groq
 ```
 
-For questions, select Groq, OpenAI, Anthropic, Gemini or local Ollama with
-`--provider`. Hosted providers use their own API keys. See the
-[provider setup guide](https://github.com/ShubhamKumarSahu-svg/graph-n4j/blob/main/docs/providers.md)
-for environment variables and examples. Indexing has no default file-count or
-file-size cap. Language and directory filters still apply.
+### Ask questions with your preferred model
+
+Run `graph-n4j repos` to find the repository ID. For a hosted provider, set its API key in the terminal where you run `ask`.
+
+| Provider | CLI option | Environment variable |
+| --- | --- | --- |
+| Groq | `--provider groq` | `GROQ_API_KEY` |
+| OpenAI | `--provider openai` | `OPENAI_API_KEY` |
+| Anthropic | `--provider anthropic` | `ANTHROPIC_API_KEY` |
+| Google Gemini | `--provider gemini` | `GEMINI_API_KEY` |
+| Ollama | `--provider ollama` | Local server, no API key |
+
+For example, in PowerShell:
+
+```powershell
+$env:OPENAI_API_KEY = "<your key>"
+graph-n4j ask "Which modules define commands?" --repo-id pallets/click --provider openai
+```
+
+For a running local Ollama server:
+
+```bash
+ollama pull qwen2.5-coder
+graph-n4j --model qwen2.5-coder ask "Which functions call the parser?" --repo-id pallets/click --provider ollama
+```
+
+The [provider setup guide](https://github.com/ShubhamKumarSahu-svg/graph-n4j/blob/main/docs/providers.md) lists model settings and server options. Indexing has no default file-count or file-size cap. Language and directory filters still apply.
 
 For direct graph access, use Cypher:
 
