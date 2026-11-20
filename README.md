@@ -1,6 +1,6 @@
 # graph-n4j
 
-Index Python, C and C++ code in Neo4j, then query relationships between files, classes and functions. Version 1.1.4 adds concise CLI diagnostics and confirms each batch when deleting a repository graph. The indexer uses Tree-sitter grammars, SHA-256 file checks, a cross-file linker and batched graph writes.
+Index Python, C and C++ code in Neo4j, then query relationships between files, classes and functions. Version 1.1.5 reports failed model requests and retries empty answers. The indexer uses Tree-sitter grammars, SHA-256 file checks, a cross-file linker and batched graph writes.
 
 ![graph-n4j 1.1.0 indexing pipeline](https://raw.githubusercontent.com/ShubhamKumarSahu-svg/graph-n4j/main/docs/images/readme-indexing.png)
 
@@ -139,6 +139,20 @@ For a running local Ollama server:
 ollama pull qwen2.5-coder
 graph-n4j --model qwen2.5-coder ask "Which functions call the parser?" --repo-id pallets/click --provider ollama
 ```
+
+### Choose a chat model in PowerShell
+
+For Groq, set `GROQ_API_KEY` first. The following command uses the key from your environment or project's `.env` file to list model IDs. Pick a text chat model your account can use.
+
+```powershell
+py -c "from dotenv import find_dotenv, load_dotenv; from groq import Groq; load_dotenv(find_dotenv(usecwd=True), override=True, encoding='utf-8-sig'); print('\n'.join(sorted(m.id for m in Groq().models.list().data)))"
+$model = Read-Host "Enter a chat model ID from the list"
+graph-n4j --model "$model" ask "Which functions does cJSON_Parse call directly?" --repo-id "DaveGamble/cJSON" --provider groq
+```
+
+Use the repository ID shown by `graph-n4j repos`. Place `--model` before `ask`. You can switch models and reuse the same index.
+
+If you get HTTP 404, check the exact model ID and any custom provider endpoint. A database hit counts a query sent to Neo4j, even if it returns zero records. If final answer generation returns empty text, graph-n4j retries with a shorter prompt. If that also returns empty, try a narrower question or another chat model. For diagnostic details, put `--verbose` before `ask`.
 
 The [provider setup guide](https://github.com/ShubhamKumarSahu-svg/graph-n4j/blob/main/docs/providers.md) lists model settings and server options. Indexing has no default file-count or file-size cap. Language and directory filters still apply.
 
